@@ -42,6 +42,7 @@ import {
   Share2,
   StickyNote,
   Pin,
+  Layers3,
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import {
@@ -750,8 +751,19 @@ export default function MerchantCenter() {
                                   <AvatarImage src={merchant.logo || "/placeholder.svg"} />
                                   <AvatarFallback>{merchant.name[0]}</AvatarFallback>
                                 </Avatar>
-                                {/* 头像图标 - Pin优先显示，其次Crown */}
-                                {merchant.is_topped ? (
+                                {/* 头像图标 - 官方置顶优先,自助置顶Pin次之,最后是押金Crown */}
+                                {merchant.pin_type === "admin" ? (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <div className="absolute -top-1 -right-1 rounded-full p-1 shadow-lg cursor-help" style={{ backgroundColor: '#2864b4' }}>
+                                        <Layers3 className="h-3 w-3 text-white" />
+                                      </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top">
+                                      <p className="text-xs">官方置顶</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                ) : merchant.pin_type === "self" || merchant.is_topped ? (
                                   <Tooltip>
                                     <TooltipTrigger asChild>
                                       <div className="absolute -top-1 -right-1 bg-red-500 rounded-full p-0.5 shadow-md cursor-help">
@@ -759,7 +771,7 @@ export default function MerchantCenter() {
                                       </div>
                                     </TooltipTrigger>
                                     <TooltipContent side="top">
-                                      <p className="text-xs">置顶</p>
+                                      <p className="text-xs">自助置顶</p>
                                     </TooltipContent>
                                   </Tooltip>
                                 ) : merchant.is_deposit_merchant ? (
@@ -1070,8 +1082,19 @@ export default function MerchantCenter() {
                           <AvatarImage src={merchant.logo || "/placeholder.svg"} />
                           <AvatarFallback>{merchant.name[0]}</AvatarFallback>
                         </Avatar>
-                        {/* 头像图标 - Pin优先显示，其次Crown */}
-                        {merchant.is_topped ? (
+                        {/* 头像图标 - 官方置顶优先,自助置顶Pin次之,最后是押金Crown */}
+                        {merchant.pin_type === "admin" ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="absolute -top-1 -right-1 rounded-full p-1.5 shadow-lg cursor-help" style={{ backgroundColor: '#2864b4' }}>
+                                <Layers3 className="h-4 w-4 text-white" />
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">
+                              <p className="text-xs">官方置顶</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : merchant.pin_type === "self" || merchant.is_topped ? (
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <div className="absolute -top-1 -right-1 bg-red-500 rounded-full p-1 shadow-lg cursor-help">
@@ -1079,7 +1102,7 @@ export default function MerchantCenter() {
                               </div>
                             </TooltipTrigger>
                             <TooltipContent side="top">
-                              <p className="text-xs">置顶</p>
+                              <p className="text-xs">自助置顶</p>
                             </TooltipContent>
                           </Tooltip>
                         ) : merchant.is_deposit_merchant ? (

@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Progress } from "@/components/ui/progress"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Plus, Upload, X, CheckCircle2, AlertCircle, Eye, Coins, MessageSquare, ArrowLeft } from "lucide-react"
 import { toast } from "sonner"
 import { getApprovedPartners, submitPartnerApplication, uploadPartnerLogo } from "@/lib/actions/partners"
@@ -25,9 +26,11 @@ export default function PartnersPage() {
   const [partnerName, setPartnerName] = useState("")
   const [partnerUrl, setPartnerUrl] = useState("")
   const [partnerDescription, setPartnerDescription] = useState("")
+  const [applicantNotes, setApplicantNotes] = useState("")
 
   // 新增: 订阅时长和支付相关
-  const [durationYears, setDurationYears] = useState(1)
+  const [subscriptionUnit, setSubscriptionUnit] = useState<"month" | "year">("year")
+  const [durationValue, setDurationValue] = useState(1)
   const [durationError, setDurationError] = useState("")
   const [paymentProofUrl, setPaymentProofUrl] = useState("")
   const [paymentProofFile, setPaymentProofFile] = useState<File | null>(null)
@@ -36,8 +39,10 @@ export default function PartnersPage() {
   const [submitting, setSubmitting] = useState(false)
 
   const totalSteps = 4 // 总步骤数: 1.基本信息 2.订阅时长 3.支付 4.完成
+  const monthlyFee = 20 // 月费: 20 USDT
   const annualFee = 100 // 年费: 100 USDT
-  const totalAmount = durationYears * annualFee // 总金额
+  const unitFee = subscriptionUnit === "month" ? monthlyFee : annualFee
+  const totalAmount = durationValue * unitFee // 总金额
 
   // 合作伙伴列表 - 从后端加载
   const [partners, setPartners] = useState<Array<{
@@ -181,17 +186,17 @@ export default function PartnersPage() {
   }
 
   // 验证订阅时长
-  const validateDuration = (years: number): boolean => {
-    if (!years || isNaN(years)) {
+  const validateDuration = (value: number): boolean => {
+    if (!value || isNaN(value)) {
       setDurationError("请输入有效的订阅时长")
       return false
     }
-    if (!Number.isInteger(years)) {
+    if (!Number.isInteger(value)) {
       setDurationError("订阅时长必须是整数")
       return false
     }
-    if (years < 1) {
-      setDurationError("订阅时长最低1年")
+    if (value < 1) {
+      setDurationError("订阅时长最低1个单位")
       return false
     }
     setDurationError("")
@@ -260,7 +265,7 @@ export default function PartnersPage() {
 
     // 第2步: 验证订阅时长
     if (step === 2) {
-      if (!validateDuration(durationYears)) {
+      if (!validateDuration(durationValue)) {
         return
       }
     }
@@ -308,9 +313,11 @@ export default function PartnersPage() {
         name: partnerName,
         logo_url: logoUrl,
         website_url: partnerUrl,
-        description: partnerDescription,
-        duration_years: durationYears,
-        annual_fee: annualFee,
+        description: "",
+        applicant_notes: applicantNotes,
+        subscription_unit: subscriptionUnit,
+        duration_value: durationValue,
+        unit_fee: unitFee,
         total_amount: totalAmount,
         payment_proof_url: paymentProofUrl,
         transaction_hash: transactionHash,
@@ -344,7 +351,9 @@ export default function PartnersPage() {
     setPartnerName("")
     setPartnerUrl("")
     setPartnerDescription("")
-    setDurationYears(1)
+    setApplicantNotes("")
+    setSubscriptionUnit("year")
+    setDurationValue(1)
     setDurationError("")
     setPaymentProofUrl("")
     setPaymentProofFile(null)
@@ -591,6 +600,22 @@ export default function PartnersPage() {
                     请填写正规的官方网站链接,不支持 Telegram、WhatsApp、Discord 等群聊链接
                   </p>
                 </div>
+
+                {/* 备注 */}
+                <div className="space-y-2">
+                  <Label htmlFor="applicant-notes">备注（可选）</Label>
+                  <Textarea
+                    id="applicant-notes"
+                    placeholder="如有特殊说明或需要补充的信息,请在此填写..."
+                    value={applicantNotes}
+                    onChange={(e) => setApplicantNotes(e.target.value)}
+                    rows={3}
+                    maxLength={500}
+                  />
+                  <p className="text-xs text-muted-foreground text-right">
+                    {applicantNotes.length}/500
+                  </p>
+                </div>
               </div>
 
               <div className="flex justify-end gap-2 pt-4">
@@ -608,20 +633,43 @@ export default function PartnersPage() {
               <div className="space-y-4">
                 <h3 className="text-base font-semibold">选择订阅时长</h3>
 
+                {/* 订阅单位选择 */}
                 <div className="space-y-3">
-                  <Label htmlFor="duration-years">订阅时长（年）<span className="text-red-500">*</span></Label>
+                  <Label>订阅单位 <span className="text-red-500">*</span></Label>
+                  <Select value={subscriptionUnit} onValueChange={(value: "month" | "year") => setSubscriptionUnit(value)}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="month">按月订阅 (20 USDT/月)</SelectItem>
+                      <SelectItem value="year">按年订阅 (100 USDT/年)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {subscriptionUnit === "month"
+                      ? "按月订阅更灵活,适合短期推广"
+                      : "按年订阅更优惠,平均每月仅8.3 USDT"}
+                  </p>
+                </div>
+
+                {/* 订阅时长输入 */}
+                <div className="space-y-3">
+                  <Label htmlFor="duration-value">
+                    订阅时长（{subscriptionUnit === "month" ? "月" : "年"}）
+                    <span className="text-red-500">*</span>
+                  </Label>
                   <Input
-                    id="duration-years"
+                    id="duration-value"
                     type="number"
                     min={1}
                     step={1}
-                    value={durationYears}
+                    value={durationValue}
                     onChange={(e) => {
                       const value = parseInt(e.target.value, 10)
-                      setDurationYears(value)
+                      setDurationValue(value)
                       setDurationError("")
                     }}
-                    placeholder="请输入订阅时长（最低1年）"
+                    placeholder={`请输入订阅时长（最低1${subscriptionUnit === "month" ? "月" : "年"}）`}
                     className={durationError ? "border-red-500 w-full" : "w-full"}
                   />
                   {durationError && (
@@ -631,7 +679,7 @@ export default function PartnersPage() {
                     </p>
                   )}
                   <p className="text-xs text-muted-foreground">
-                    最低订阅时长为1年,年费100 USDT/年
+                    最低订阅时长为1{subscriptionUnit === "month" ? "月" : "年"}
                   </p>
                 </div>
 
@@ -641,8 +689,9 @@ export default function PartnersPage() {
                     <div className="space-y-2">
                       <p className="font-medium">订阅费用明细</p>
                       <div className="text-sm space-y-1">
-                        <p>订阅时长: {durationYears} 年</p>
-                        <p>年费: {annualFee} USDT/年</p>
+                        <p>订阅单位: {subscriptionUnit === "month" ? "按月" : "按年"}</p>
+                        <p>订阅时长: {durationValue} {subscriptionUnit === "month" ? "月" : "年"}</p>
+                        <p>单价: {unitFee} USDT/{subscriptionUnit === "month" ? "月" : "年"}</p>
                         <p className="text-lg font-bold text-amber-600">总金额: {totalAmount} USDT</p>
                       </div>
                     </div>
@@ -808,14 +857,18 @@ export default function PartnersPage() {
                       <p className="font-medium">{partnerName}</p>
                     </div>
                     <div>
+                      <p className="text-muted-foreground mb-1">订阅方式</p>
+                      <p className="font-medium">{subscriptionUnit === "month" ? "按月订阅" : "按年订阅"}</p>
+                    </div>
+                    <div>
                       <p className="text-muted-foreground mb-1">订阅时长</p>
-                      <p className="font-medium">{durationYears} 年</p>
+                      <p className="font-medium">{durationValue} {subscriptionUnit === "month" ? "月" : "年"}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground mb-1">订阅金额</p>
                       <p className="font-medium text-amber-600">{totalAmount} USDT</p>
                     </div>
-                    <div>
+                    <div className="col-span-2">
                       <p className="text-muted-foreground mb-1">交易ID</p>
                       <p className="font-medium text-xs break-all">{transactionHash}</p>
                     </div>

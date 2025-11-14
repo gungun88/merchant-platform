@@ -61,7 +61,9 @@
       "Bash(echo:*)",
       "Bash(test_coin_exchange_api.js)",
       "Bash(touch:*)",
-      "Bash(where:*)"
+      "Bash(where:*)",
+      "Bash(git diff-tree:*)",
+      "Bash(del:*)"
     ],
     "deny": [],
     "ask": []

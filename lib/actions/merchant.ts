@@ -323,12 +323,14 @@ export async function topMerchant(merchantId: string, days: number) {
   // 叠加新的置顶天数
   toppedUntil.setDate(toppedUntil.getDate() + days)
 
-  // 更新商家置顶状态
+  // 更新商家置顶状态 (自助置顶类型)
   const { error } = await supabase
     .from("merchants")
     .update({
       is_topped: true,
       topped_until: toppedUntil.toISOString(),
+      pin_type: "self",
+      pin_expires_at: toppedUntil.toISOString(),
     })
     .eq("id", merchantId)
 
@@ -469,11 +471,20 @@ export async function getMerchants(filters?: {
     })
   }
 
-  // 在内存中进行多级排序：置顶 → 积分 → 创建时间
+  // 在内存中进行多级排序：官方置顶 → 自助置顶 → 积分 → 创建时间
   filteredData.sort((a: any, b: any) => {
-    // 1. 首先按置顶状态排序（置顶的在前）
-    if (a.is_topped !== b.is_topped) {
-      return b.is_topped ? 1 : -1
+    // 1. 首先按置顶类型排序 (admin > self > null)
+    const getPinPriority = (pinType: string | null) => {
+      if (pinType === "admin") return 3 // 官方置顶优先级最高
+      if (pinType === "self") return 2 // 自助置顶次之
+      return 1 // 未置顶
+    }
+
+    const priorityA = getPinPriority(a.pin_type)
+    const priorityB = getPinPriority(b.pin_type)
+
+    if (priorityA !== priorityB) {
+      return priorityB - priorityA // 优先级高的在前
     }
 
     // 2. 然后按用户积分排序（积分高的在前）
@@ -1223,7 +1234,7 @@ export async function adminCompleteCompensation(merchantId: string, compensation
 }
 
 /**
- * 管理员 - 置顶商家
+ * 管理员 - 置顶商家 (官方置顶)
  * @param merchantId 商家ID
  * @param days 置顶天数
  */
@@ -1255,12 +1266,14 @@ export async function adminPinMerchant(merchantId: string, days: number = 7) {
     const toppedUntil = new Date()
     toppedUntil.setDate(toppedUntil.getDate() + days)
 
-    // 更新商家置顶状态
+    // 更新商家置顶状态 (官方置顶: pin_type='admin', pin_expires_at设置到期时间)
     const { error: updateError } = await supabase
       .from("merchants")
       .update({
         is_topped: true,
         topped_until: toppedUntil.toISOString(),
+        pin_type: "admin", // 官方置顶
+        pin_expires_at: toppedUntil.toISOString(), // 官方置顶也有到期时间
       })
       .eq("id", merchantId)
 
@@ -1272,11 +1285,12 @@ export async function adminPinMerchant(merchantId: string, days: number = 7) {
       operationType: "pin_merchant",
       targetType: "merchant",
       targetId: merchantId,
-      description: `置顶商家: ${merchant.name}，置顶${days}天`,
+      description: `官方置顶商家: ${merchant.name}，置顶${days}天`,
       metadata: {
         merchantName: merchant.name,
+        pinType: "admin",
         days,
-        toppedUntil: toppedUntil.toISOString(),
+        expiresAt: toppedUntil.toISOString(),
       },
     })
 
@@ -1285,15 +1299,16 @@ export async function adminPinMerchant(merchantId: string, days: number = 7) {
       userId: merchant.user_id,
       type: "merchant",
       category: "merchant_pinned",
-      title: "商家已置顶",
-      content: `您的商家已被置顶${days}天，将在首页优先展示，置顶截止时间: ${toppedUntil.toLocaleString("zh-CN")}`,
+      title: "商家已获得官方置顶",
+      content: `恭喜！您的商家已获得官方置顶 ${days} 天，将在首页优先展示，到期时间: ${toppedUntil.toLocaleDateString('zh-CN')}`,
       relatedMerchantId: merchantId,
+      metadata: { days, until: toppedUntil.toISOString() },
     })
 
     revalidatePath("/admin/merchants")
     revalidatePath("/")
 
-    return { success: true, toppedUntil: toppedUntil.toISOString() }
+    return { success: true, pinType: "admin", expiresAt: toppedUntil.toISOString() }
   } catch (error) {
     console.error("Error in adminPinMerchant:", error)
     return {
@@ -1332,6 +1347,8 @@ export async function adminUnpinMerchant(merchantId: string) {
       .update({
         is_topped: false,
         topped_until: null,
+        pin_type: null,
+        pin_expires_at: null,
       })
       .eq("id", merchantId)
 

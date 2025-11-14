@@ -15,16 +15,75 @@ export async function generateMetadata(): Promise<Metadata> {
   const settings = result.data
 
   const title = settings?.platform_name || "跨境服务商平台"
-  const description = settings?.platform_description || "一个面向跨境电商服务商的展示和对接平台"
+  const description = settings?.platform_description || "一个面向跨境电商服务商的展示和对接平台，汇聚Shopify独立站、Facebook/TikTok开户、虚拟卡等跨境电商服务"
   const faviconUrl = settings?.site_favicon_url
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://你的域名.com"
 
   return {
+    metadataBase: new URL(siteUrl),
     title: {
       default: title,
       template: `%s | ${title}`,
     },
     description,
-    generator: "v0.app",
+    keywords: [
+      "跨境电商",
+      "服务商平台",
+      "Shopify独立站",
+      "Facebook开户",
+      "TikTok开户",
+      "Google开户",
+      "虚拟卡",
+      "斗篷服务",
+      "跨境服务",
+      "电商代理",
+      "Facebook账号",
+    ],
+    authors: [{ name: title }],
+    creator: title,
+    publisher: title,
+    generator: "Next.js",
+    alternates: {
+      canonical: siteUrl,
+    },
+    openGraph: {
+      type: "website",
+      locale: "zh_CN",
+      url: siteUrl,
+      title,
+      description,
+      siteName: title,
+      images: [
+        {
+          url: faviconUrl || `${siteUrl}/og-image.png`,
+          width: 1200,
+          height: 630,
+          alt: title,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [faviconUrl || `${siteUrl}/og-image.png`],
+    },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        "max-video-preview": -1,
+        "max-image-preview": "large",
+        "max-snippet": -1,
+      },
+    },
+    verification: {
+      // google: "your-google-site-verification-code",
+      // yandex: "your-yandex-verification-code",
+      // bing: "your-bing-verification-code",
+    },
     icons: faviconUrl
       ? {
           icon: faviconUrl,

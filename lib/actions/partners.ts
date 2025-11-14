@@ -19,14 +19,16 @@ export interface Partner {
   rejection_reason: string | null
   sort_order: number
   // 订阅相关字段
-  duration_years: number
-  annual_fee: number
+  subscription_unit: "month" | "year"
+  duration_value: number
+  unit_fee: number
   total_amount: number
   payment_proof_url: string | null
   transaction_hash: string | null
   expires_at: string | null
   // 备注字段
   admin_notes: string | null
+  applicant_notes: string | null
 }
 
 export interface SubmitPartnerApplicationParams {
@@ -34,9 +36,11 @@ export interface SubmitPartnerApplicationParams {
   logo_url: string
   website_url: string
   description?: string
+  applicant_notes?: string
   // 订阅相关
-  duration_years: number
-  annual_fee: number
+  subscription_unit: "month" | "year"
+  duration_value: number
+  unit_fee: number
   total_amount: number
   payment_proof_url: string
   transaction_hash: string
@@ -66,8 +70,8 @@ export async function submitPartnerApplication(params: SubmitPartnerApplicationP
       return { success: false, error: "请上传支付凭证并填写交易ID" }
     }
 
-    if (!params.duration_years || params.duration_years < 1) {
-      return { success: false, error: "订阅时长最低1年" }
+    if (!params.duration_value || params.duration_value < 1) {
+      return { success: false, error: "订阅时长最低1个单位" }
     }
 
     // 验证URL格式
@@ -85,11 +89,13 @@ export async function submitPartnerApplication(params: SubmitPartnerApplicationP
         logo_url: params.logo_url,
         website_url: params.website_url,
         description: params.description || null,
+        applicant_notes: params.applicant_notes || null,
         created_by: user.id,
         status: "pending",
         // 订阅相关字段
-        duration_years: params.duration_years,
-        annual_fee: params.annual_fee,
+        subscription_unit: params.subscription_unit,
+        duration_value: params.duration_value,
+        unit_fee: params.unit_fee,
         total_amount: params.total_amount,
         payment_proof_url: params.payment_proof_url,
         transaction_hash: params.transaction_hash,
@@ -109,7 +115,7 @@ export async function submitPartnerApplication(params: SubmitPartnerApplicationP
       type: "system",
       category: "partner_application",
       title: "合作伙伴申请已提交",
-      content: `您的合作伙伴申请 "${params.name}" 已提交（订阅${params.duration_years}年,总计${params.total_amount} USDT）,我们会尽快审核。`,
+      content: `您的合作伙伴申请 "${params.name}" 已提交（${params.subscription_unit === "month" ? "按月" : "按年"}订阅${params.duration_value}${params.subscription_unit === "month" ? "月" : "年"},总计${params.total_amount} USDT）,我们会尽快审核。`,
     })
 
     revalidatePath("/partners")
@@ -307,10 +313,14 @@ export async function reviewPartnerApplication(
         updateData.sort_order = sortOrder
       }
 
-      // 设置订阅到期时间: 当前时间 + duration_years 年
-      if (partner.duration_years) {
+      // 设置订阅到期时间: 当前时间 + duration_value (月或年)
+      if (partner.duration_value && partner.subscription_unit) {
         const expiresAt = new Date()
-        expiresAt.setFullYear(expiresAt.getFullYear() + partner.duration_years)
+        if (partner.subscription_unit === "month") {
+          expiresAt.setMonth(expiresAt.getMonth() + partner.duration_value)
+        } else {
+          expiresAt.setFullYear(expiresAt.getFullYear() + partner.duration_value)
+        }
         updateData.expires_at = expiresAt.toISOString()
       }
     }

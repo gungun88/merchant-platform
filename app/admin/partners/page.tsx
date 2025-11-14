@@ -61,12 +61,16 @@ interface Partner {
   rejection_reason: string | null
   sort_order: number
   // 订阅相关字段
-  duration_years: number
-  annual_fee: number
+  subscription_unit: "month" | "year"
+  duration_value: number
+  unit_fee: number
   total_amount: number
   payment_proof_url: string | null
   transaction_hash: string | null
   expires_at: string | null
+  // 备注相关字段
+  admin_notes?: string | null
+  applicant_notes?: string | null
   // 关联数据
   created_by_profile?: {
     username: string
@@ -275,10 +279,14 @@ export default function AdminPartnersPage() {
       if (reviewAction === "approve") {
         updateData.sort_order = sortOrder
 
-        // 设置订阅到期时间: 当前时间 + duration_years 年
-        if (selectedPartner.duration_years) {
+        // 设置订阅到期时间: 当前时间 + duration_value (月或年)
+        if (selectedPartner.duration_value && selectedPartner.subscription_unit) {
           const expiresAt = new Date()
-          expiresAt.setFullYear(expiresAt.getFullYear() + selectedPartner.duration_years)
+          if (selectedPartner.subscription_unit === "month") {
+            expiresAt.setMonth(expiresAt.getMonth() + selectedPartner.duration_value)
+          } else {
+            expiresAt.setFullYear(expiresAt.getFullYear() + selectedPartner.duration_value)
+          }
           updateData.expires_at = expiresAt.toISOString()
         }
       }
@@ -518,13 +526,20 @@ export default function AdminPartnersPage() {
                             </a>
                           </TableCell>
                           <TableCell>
-                            <p className="text-sm font-medium">{partner.duration_years} 年</p>
+                            <div className="text-sm">
+                              <p className="font-medium">
+                                {partner.duration_value} {partner.subscription_unit === "month" ? "月" : "年"}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {partner.subscription_unit === "month" ? "按月" : "按年"}
+                              </p>
+                            </div>
                           </TableCell>
                           <TableCell>
                             <div className="text-sm">
                               <p className="font-medium text-amber-600">{partner.total_amount} USDT</p>
                               <p className="text-xs text-muted-foreground">
-                                {partner.annual_fee} USDT/年
+                                {partner.unit_fee} USDT/{partner.subscription_unit === "month" ? "月" : "年"}
                               </p>
                             </div>
                           </TableCell>
@@ -850,9 +865,10 @@ export default function AdminPartnersPage() {
                       {selectedPartner.total_amount.toLocaleString()} USDT
                     </span>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 text-xs text-amber-700">
-                    <div>订阅时长: {selectedPartner.duration_years} 年</div>
-                    <div>年费: {selectedPartner.annual_fee} USDT/年</div>
+                  <div className="grid grid-cols-3 gap-2 text-xs text-amber-700">
+                    <div>订阅方式: {selectedPartner.subscription_unit === "month" ? "按月" : "按年"}</div>
+                    <div>订阅时长: {selectedPartner.duration_value} {selectedPartner.subscription_unit === "month" ? "月" : "年"}</div>
+                    <div>单价: {selectedPartner.unit_fee} USDT/{selectedPartner.subscription_unit === "month" ? "月" : "年"}</div>
                   </div>
                   {selectedPartner.expires_at && (
                     <div className="mt-2 pt-2 border-t border-amber-200 text-xs text-amber-700">
@@ -903,6 +919,18 @@ export default function AdminPartnersPage() {
                   <p className="text-sm text-muted-foreground">未填写交易哈希</p>
                 )}
               </div>
+
+              {/* 申请人备注 */}
+              {selectedPartner.applicant_notes && (
+                <div className="space-y-2">
+                  <h3 className="font-semibold text-sm">申请人备注</h3>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <p className="text-sm text-blue-900 whitespace-pre-wrap">
+                      {selectedPartner.applicant_notes}
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* 审核信息 */}
               {(selectedPartner.status === "approved" || selectedPartner.status === "rejected") && (

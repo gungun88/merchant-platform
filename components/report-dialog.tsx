@@ -5,7 +5,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Input } from "@/components/ui/input"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { AlertCircle, Upload, X, Image as ImageIcon } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
@@ -28,6 +30,8 @@ const reportReasons = [
 export function ReportDialog({ open, onOpenChange, merchantId, merchantName }: ReportDialogProps) {
   const [reason, setReason] = useState("")
   const [details, setDetails] = useState("")
+  const [contactType, setContactType] = useState("")
+  const [reporterContact, setReporterContact] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [evidenceFiles, setEvidenceFiles] = useState<File[]>([])
   const [evidenceUrls, setEvidenceUrls] = useState<string[]>([])
@@ -97,6 +101,14 @@ export function ReportDialog({ open, onOpenChange, merchantId, merchantName }: R
       toast.error("请填写详细说明")
       return
     }
+    if (!contactType) {
+      toast.error("请选择联系方式类型")
+      return
+    }
+    if (!reporterContact.trim()) {
+      toast.error("请填写您的联系方式")
+      return
+    }
     if (evidenceFiles.length === 0) {
       toast.error("请至少上传一张证据图片")
       return
@@ -111,9 +123,12 @@ export function ReportDialog({ open, onOpenChange, merchantId, merchantName }: R
         return
       }
       const uploadedUrls = await uploadEvidence()
+      // 组合联系方式类型和内容
+      const fullContact = `${contactType}: ${reporterContact}`
       const { error } = await supabase.from("reports").insert({
         merchant_id: merchantId,
         reporter_id: user.id,
+        reporter_contact: fullContact,
         // 新字段
         report_type: reason,
         report_reason: details,
@@ -128,6 +143,8 @@ export function ReportDialog({ open, onOpenChange, merchantId, merchantName }: R
       onOpenChange(false)
       setReason("")
       setDetails("")
+      setContactType("")
+      setReporterContact("")
       setEvidenceFiles([])
       setEvidenceUrls([])
     } catch (error) {
@@ -141,6 +158,8 @@ export function ReportDialog({ open, onOpenChange, merchantId, merchantName }: R
   const handleClose = () => {
     setReason("")
     setDetails("")
+    setContactType("")
+    setReporterContact("")
     setEvidenceFiles([])
     setEvidenceUrls([])
     onOpenChange(false)
@@ -148,7 +167,7 @@ export function ReportDialog({ open, onOpenChange, merchantId, merchantName }: R
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>举报商家</DialogTitle>
           <DialogDescription>举报商家：{merchantName}</DialogDescription>
@@ -176,6 +195,44 @@ export function ReportDialog({ open, onOpenChange, merchantId, merchantName }: R
             <Label htmlFor="details">详细说明 *</Label>
             <Textarea id="details" value={details} onChange={(e) => setDetails(e.target.value)} placeholder="请详细说明举报原因，提供相关证据或线索..." rows={5} maxLength={500} />
             <p className="text-xs text-muted-foreground text-right">{details.length}/500</p>
+          </div>
+          <div className="space-y-3">
+            <Label>您的联系方式 *</Label>
+            <div className="flex gap-2">
+              <div className="w-auto min-w-[100px] flex-shrink-0">
+                <Select value={contactType} onValueChange={setContactType}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="类型" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="微信">微信</SelectItem>
+                    <SelectItem value="Telegram">Telegram</SelectItem>
+                    <SelectItem value="WhatsApp">WhatsApp</SelectItem>
+                    <SelectItem value="邮箱">邮箱</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex-1">
+                <Input
+                  id="reporter-contact"
+                  type="text"
+                  value={reporterContact}
+                  onChange={(e) => setReporterContact(e.target.value)}
+                  placeholder={
+                    contactType === "邮箱"
+                      ? "请输入您的邮箱地址"
+                      : contactType
+                        ? `请输入您的${contactType}账号`
+                        : "请先选择联系方式类型"
+                  }
+                  maxLength={100}
+                  disabled={!contactType}
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              我们可能需要联系您了解更多情况，您的联系方式将被保密
+            </p>
           </div>
           <div className="space-y-3">
             <Label>上传证据图片 <span className="text-red-500">*</span></Label>

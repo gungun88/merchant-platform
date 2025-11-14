@@ -389,6 +389,11 @@ export default function ReportsManagement() {
                                   {report.reporter.email}
                                 </div>
                               )}
+                              {report.reporter_contact && (
+                                <div className="text-xs text-blue-600 font-medium">
+                                  {report.reporter_contact}
+                                </div>
+                              )}
                               {report.reporter?.report_count !== undefined && (
                                 <div className="text-xs text-amber-600 font-medium">
                                   累计举报: {report.reporter.report_count} 次
@@ -467,25 +472,26 @@ export default function ReportsManagement() {
                 <div className="space-y-2">
                   <h3 className="font-semibold text-sm">举报者信息</h3>
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
                         <p className="font-medium text-base text-amber-900">
                           {selectedReport.reporter?.username || "未知用户"}
                         </p>
-                        {selectedReport.reporter?.email && (
-                          <p className="text-xs text-amber-700 mt-1">
-                            {selectedReport.reporter.email}
-                          </p>
+                        {selectedReport.reporter?.report_count !== undefined && (
+                          <span className="text-xs text-amber-700">
+                            (累计举报 {selectedReport.reporter.report_count} 次)
+                          </span>
                         )}
                       </div>
-                      {selectedReport.reporter?.report_count !== undefined && (
-                        <div className="text-right">
-                          <p className="text-xs text-amber-700">累计举报</p>
-                          <p className="text-2xl font-bold text-amber-900">
-                            {selectedReport.reporter.report_count}
-                          </p>
-                          <p className="text-xs text-amber-700">次</p>
-                        </div>
+                      {selectedReport.reporter?.email && (
+                        <p className="text-xs text-amber-700">
+                          邮箱: {selectedReport.reporter.email}
+                        </p>
+                      )}
+                      {selectedReport.reporter_contact && (
+                        <p className="text-sm text-blue-700 font-medium">
+                          {selectedReport.reporter_contact}
+                        </p>
                       )}
                     </div>
                   </div>

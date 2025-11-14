@@ -96,6 +96,7 @@
 - **数据库**: Supabase (PostgreSQL)
 - **认证**: Supabase Auth
 - **状态管理**: React Hooks (useState, useEffect)
+- **SEO优化**: 完整的SEO配置（robots.txt、sitemap.xml、Open Graph、结构化数据）
 
 ## 数据结构
 
@@ -422,7 +423,18 @@ NEXT_PUBLIC_SUPABASE_URL=你的Supabase项目URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY=你的Supabase匿名密钥
 SUPABASE_SERVICE_ROLE_KEY=你的Supabase服务角色密钥
 NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL=http://localhost:3000
+
+# 网站配置 (用于SEO，部署时必须配置)
+NEXT_PUBLIC_SITE_URL=https://你的域名.com
+
+# 硬币兑换API密钥 (与论坛共享)
+COIN_EXCHANGE_API_SECRET=你的API密钥
 \`\`\`
+
+**重要**：
+- 本地开发时 `NEXT_PUBLIC_SITE_URL` 可以是 `http://localhost:3000`
+- 部署到生产环境时必须改为实际域名，用于SEO和社交分享
+- 参考 `.env.local.example` 文件了解所有配置项
 
 ### 获取Supabase密钥
 
@@ -460,7 +472,47 @@ NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL=http://localhost:3000
 - [ ] 会员等级系统
 - [ ] API开放平台
 
+## SEO优化
+
+本项目已完成完整的SEO优化配置，详情请查看 [SEO配置指南](./docs/SEO_GUIDE.md)。
+
+### SEO功能清单
+
+✅ **robots.txt** - 搜索引擎爬虫规则
+✅ **sitemap.xml** - 动态生成的网站地图
+✅ **Open Graph** - 社交媒体分享优化
+✅ **Twitter Card** - Twitter分享卡片
+✅ **结构化数据** - Schema.org JSON-LD
+✅ **页面元数据** - 每个页面独立的SEO配置
+✅ **关键词优化** - 针对跨境电商行业的关键词
+
+### 部署前必须配置
+
+在 `.env.local` 中添加：
+```env
+NEXT_PUBLIC_SITE_URL=https://你的实际域名.com
+```
+
+### 提交到搜索引擎
+
+部署后建议提交到：
+- [Google Search Console](https://search.google.com/search-console)
+- [Bing Webmaster Tools](https://www.bing.com/webmasters)
+- [百度站长平台](https://ziyuan.baidu.com)
+
+详细的SEO配置和优化指南请参考 [docs/SEO_GUIDE.md](./docs/SEO_GUIDE.md)。
+
 ## 版本历史
+
+### v1.2.0 (2025-01-15) - SEO优化版本
+- ✨ 添加完整的SEO优化配置
+- ✨ 创建 robots.txt 和动态 sitemap.xml
+- ✨ 添加 Open Graph 和 Twitter Card 支持
+- ✨ 添加结构化数据（Schema.org JSON-LD）
+- ✨ 为主要页面添加独立的SEO元数据
+- ✨ 添加 SEO 配置指南文档
+- 🔧 优化关键词配置
+- 🔧 添加 .env.local.example 模板文件
 
 ### v1.1.0 (2025-01-15)
 - 添加用户认证系统
@@ -479,4 +531,4 @@ NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL=http://localhost:3000
 ---
 
 **最后更新**: 2025年1月
-**版本**: v1.1.0
+**版本**: v1.2.0

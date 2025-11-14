@@ -1,0 +1,18 @@
+# 允许所有搜索引擎爬取所有内容
+User-agent: *
+Allow: /
+
+# Sitemap位置
+Sitemap: https://你的域名.com/sitemap.xml
+
+# 禁止爬取API路由
+Disallow: /api/
+
+# 禁止爬取管理后台
+Disallow: /admin/
+
+# 禁止爬取认证相关页面
+Disallow: /auth/
+
+# 爬取频率限制（可选）
+Crawl-delay: 1

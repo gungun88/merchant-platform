@@ -1045,14 +1045,24 @@ export default function MerchantsPage() {
       <Dialog open={pinDialogOpen} onOpenChange={setPinDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>置顶商家</DialogTitle>
+            <DialogTitle>官方置顶商家</DialogTitle>
             <DialogDescription>
-              设置商家【{selectedMerchant?.name}】的置顶时长
+              设置商家【{selectedMerchant?.name}】为官方置顶
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-sm font-medium text-blue-900">官方置顶说明:</p>
+              <ul className="text-xs text-blue-700 space-y-1 mt-2 ml-4">
+                <li>• 官方置顶商家将在首页最优先展示</li>
+                <li>• 显示蓝色认证徽章，表明官方推荐</li>
+                <li>• 排序优先级高于自助置顶商家</li>
+                <li>• 到期后自动下架</li>
+                <li>• 可随时手动取消官方置顶</li>
+              </ul>
+            </div>
             <div className="space-y-2">
-              <Label htmlFor="pin-days">
+              <Label>
                 置顶天数 <span className="text-red-500">*</span>
               </Label>
               <Input
@@ -1066,17 +1076,8 @@ export default function MerchantsPage() {
                 required
               />
               <p className="text-xs text-muted-foreground">
-                建议: 7天(一周)、30天(一个月)、90天(一季度)
+                到期后商家将自动从官方置顶中移除
               </p>
-            </div>
-            <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
-              <p className="text-sm font-medium text-purple-900">置顶说明:</p>
-              <ul className="text-xs text-purple-700 space-y-1 mt-2 ml-4">
-                <li>• 置顶商家将在首页优先展示</li>
-                <li>• 置顶期间会显示置顶标识</li>
-                <li>• 置顶时间到期后将自动取消置顶</li>
-                <li>• 可随时手动取消置顶</li>
-              </ul>
             </div>
           </div>
           <DialogFooter>
@@ -1085,10 +1086,10 @@ export default function MerchantsPage() {
             </Button>
             <Button
               onClick={handlePin}
-              disabled={pinning || !pinDays || parseInt(pinDays) <= 0}
-              className="bg-purple-600 hover:bg-purple-700"
+              disabled={pinning}
+              className="bg-blue-600 hover:bg-blue-700"
             >
-              {pinning ? "处理中..." : "确认置顶"}
+              {pinning ? "处理中..." : "确认官方置顶"}
             </Button>
           </DialogFooter>
         </DialogContent>
