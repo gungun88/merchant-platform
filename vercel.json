@@ -1,0 +1,16 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/expire-tops",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/check-expiring",
+      "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron/check-expiring-partners",
+      "schedule": "0 0 * * *"
+    }
+  ]
+}
