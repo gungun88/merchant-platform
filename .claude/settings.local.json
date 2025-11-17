@@ -65,7 +65,10 @@
       "Bash(git diff-tree:*)",
       "Bash(del:*)",
       "Bash(\"c:\\Users\\ATZ\\Desktop\\商家展示\\app\\admin\\users\\page.tsx\")",
-      "Bash(Select-Object -Last 10)"
+      "Bash(Select-Object -Last 10)",
+      "Bash(pm2 -v:*)",
+      "Bash(powershell:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []
