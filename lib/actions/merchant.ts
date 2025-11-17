@@ -288,7 +288,8 @@ export async function topMerchant(merchantId: string, days: number) {
 
   // 从系统设置获取置顶费用
   const settingsResult = await getSystemSettings()
-  const costPerDay = settingsResult.data?.merchant_top_cost_per_day || 1000
+  const systemSettings = settingsResult.data
+  const costPerDay = systemSettings?.merchant_top_cost_per_day || 1000
 
   // 计算所需积分
   const requiredPoints = days * costPerDay
@@ -354,26 +355,31 @@ export async function topMerchant(merchantId: string, days: number) {
 
   const remainingPoints = updatedProfile?.points || 0
 
+  // 格式化到期时间为中国时区
+  const chinaTime = new Date(toppedUntil.getTime() + 8 * 60 * 60 * 1000)
+  const formattedDate = chinaTime.toISOString().split('T')[0].replace(/-/g, '/') // 2025/11/17
+
   // 发送置顶成功通知
   await createNotification({
     userId: user.id,
     type: "merchant",
     category: "merchant_top_success",
     title: "商家置顶成功",
-    content: `您的商家已成功置顶 ${days} 天,消耗 ${requiredPoints} 积分,到期时间: ${toppedUntil.toLocaleDateString('zh-CN')}`,
+    content: `您的商家已成功置顶 ${days} 天,消耗 ${requiredPoints} 积分,到期时间: ${formattedDate}`,
     relatedMerchantId: merchantId,
     metadata: { days, points: requiredPoints, until: toppedUntil.toISOString() },
   })
 
-  // 积分余额预警(剩余积分少于100时发送提醒)
-  if (remainingPoints < 100) {
+  // 积分余额预警(使用系统配置的阈值)
+  const lowPointsThreshold = systemSettings?.low_points_threshold || 100
+  if (remainingPoints < lowPointsThreshold) {
     await createNotification({
       userId: user.id,
       type: "transaction",
       category: "low_points_warning",
       title: "积分余额不足",
       content: `您的积分余额仅剩 ${remainingPoints} 分,建议及时获取积分以便继续使用平台服务`,
-      metadata: { remaining_points: remainingPoints, threshold: 100 },
+      metadata: { remaining_points: remainingPoints, threshold: lowPointsThreshold },
       priority: "high",
     })
   }
@@ -1294,13 +1300,17 @@ export async function adminPinMerchant(merchantId: string, days: number = 7) {
       },
     })
 
+    // 格式化到期时间为中国时区
+    const chinaTime = new Date(toppedUntil.getTime() + 8 * 60 * 60 * 1000)
+    const formattedDate = chinaTime.toISOString().split('T')[0].replace(/-/g, '/')
+
     // 发送通知给商家
     await createNotification({
       userId: merchant.user_id,
       type: "merchant",
       category: "merchant_pinned",
       title: "商家已获得官方置顶",
-      content: `恭喜！您的商家已获得官方置顶 ${days} 天，将在首页优先展示，到期时间: ${toppedUntil.toLocaleDateString('zh-CN')}`,
+      content: `恭喜！您的商家已获得官方置顶 ${days} 天，将在首页优先展示，到期时间: ${formattedDate}`,
       relatedMerchantId: merchantId,
       metadata: { days, until: toppedUntil.toISOString() },
     })

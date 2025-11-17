@@ -47,6 +47,7 @@ import {
   ArrowUpCircle,
   ShieldCheck,
   KeyRound,
+  DollarSign,
 } from "lucide-react"
 
 interface AdminLayoutProps {
@@ -79,6 +80,11 @@ const menuItems = [
     title: "合作伙伴",
     href: "/admin/partners",
     icon: Handshake,
+  },
+  {
+    title: "财务管理",
+    href: "/admin/income",
+    icon: DollarSign,
   },
   {
     title: "举报管理",
@@ -397,7 +403,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         </aside>
 
         {/* 主内容区 */}
-        <main className="min-h-screen">{children}</main>
+        <main className="min-h-screen p-6">{children}</main>
       </div>
 
       {/* 修改密码对话框 */}

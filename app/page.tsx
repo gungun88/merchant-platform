@@ -71,7 +71,7 @@ export default function MerchantCenter() {
   const [merchants, setMerchants] = useState<any[]>([])
   const [totalMerchants, setTotalMerchants] = useState(0)
   const [currentPage, setCurrentPage] = useState(1)
-  const [pageSize] = useState(20)
+  const [pageSize, setPageSize] = useState(20)
   const [loading, setLoading] = useState(true)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [userMerchant, setUserMerchant] = useState<any>(null)
@@ -112,8 +112,12 @@ export default function MerchantCenter() {
   useEffect(() => {
     async function loadSystemSettings() {
       const result = await getSystemSettings()
-      if (result.success) {
+      if (result.success && result.data) {
         setSystemSettings(result.data)
+        // 设置每页显示数量
+        if (result.data.merchants_per_page) {
+          setPageSize(result.data.merchants_per_page)
+        }
       }
     }
     loadSystemSettings()

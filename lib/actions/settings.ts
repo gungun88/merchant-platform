@@ -53,6 +53,11 @@ export interface SystemSettings {
   sensitive_words: string[] | null
   support_whatsapp: string | null
 
+  // 显示配置
+  merchants_per_page: number
+  coin_exchange_url: string | null
+  low_points_threshold: number
+
   // 邮箱验证配置
   email_validation_enabled: boolean
   email_validation_mode: 'whitelist' | 'blacklist' | 'both' | 'disabled'
@@ -108,6 +113,11 @@ export interface UpdateSettingsData {
   support_wechat?: string
   support_telegram?: string
   support_whatsapp?: string
+
+  // 显示配置
+  merchants_per_page?: number
+  coin_exchange_url?: string
+  low_points_threshold?: number
 
   // 邮箱验证配置
   email_validation_enabled?: boolean
@@ -180,6 +190,18 @@ export async function updateSystemSettings(data: UpdateSettingsData) {
   // 数据验证
   if (data.register_points !== undefined && data.register_points < 0) {
     return { success: false, error: "注册积分不能为负数" }
+  }
+
+  if (data.merchants_per_page !== undefined) {
+    if (data.merchants_per_page < 1 || data.merchants_per_page > 100) {
+      return { success: false, error: "每页显示数量必须在 1-100 之间" }
+    }
+  }
+
+  if (data.low_points_threshold !== undefined) {
+    if (data.low_points_threshold < 0 || data.low_points_threshold > 1000) {
+      return { success: false, error: "积分预警阈值必须在 0-1000 之间" }
+    }
   }
 
   if (data.deposit_refund_fee_rate !== undefined) {
@@ -493,6 +515,9 @@ export async function resetSystemSettings() {
       max_login_attempts: 5,
       login_lockout_minutes: 30,
       session_timeout_hours: 24,
+      merchants_per_page: 20,
+      coin_exchange_url: null,
+      low_points_threshold: 100,
       support_email: null,
       support_wechat: null,
       support_telegram: null,

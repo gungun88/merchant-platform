@@ -335,6 +335,31 @@ export async function reviewPartnerApplication(
       return { success: false, error: "操作失败,请重试" }
     }
 
+    // 🆕 如果是批准申请，记录平台订阅收入
+    if (action === "approve" && partner.total_amount) {
+      const { error: incomeError } = await supabase.from("platform_income").insert({
+        income_type: "partner_subscription",
+        amount: partner.total_amount,
+        partner_id: partnerId,
+        user_id: partner.created_by,
+        description: `合作伙伴订阅 - ${partner.name}`,
+        details: {
+          partner_name: partner.name,
+          subscription_unit: partner.subscription_unit,
+          duration_value: partner.duration_value,
+          unit_fee: partner.unit_fee,
+          expires_at: updateData.expires_at,
+          partner_application_id: partnerId,
+          transaction_hash: partner.transaction_hash,
+        },
+      })
+
+      if (incomeError) {
+        console.error("记录平台收入失败:", incomeError)
+        // 不中断流程，只记录错误
+      }
+    }
+
     // 发送通知给申请人
     const notificationTitle =
       action === "approve" ? "合作伙伴申请已通过" : "合作伙伴申请被拒绝"
@@ -355,6 +380,7 @@ export async function reviewPartnerApplication(
 
     revalidatePath("/partners")
     revalidatePath("/admin/partners")
+    revalidatePath("/admin/income")
 
     return { success: true }
   } catch (error: any) {
@@ -540,11 +566,15 @@ export async function checkExpiringPartners() {
       const expiresAt = new Date(partner.expires_at)
       const daysLeft = Math.ceil((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
 
+      // 格式化到期时间为中国时区
+      const chinaTime = new Date(expiresAt.getTime() + 8 * 60 * 60 * 1000)
+      const formattedDate = chinaTime.toISOString().split('T')[0].replace(/-/g, '/')
+
       await createNotification({
         userId: partner.created_by,
         type: "system",
         title: "合作伙伴订阅即将到期",
-        message: `您的合作伙伴 "${partner.name}" 将在 ${daysLeft} 天后到期(${expiresAt.toLocaleDateString("zh-CN")}),请及时续费以继续展示。`,
+        message: `您的合作伙伴 "${partner.name}" 将在 ${daysLeft} 天后到期(${formattedDate}),请及时续费以继续展示。`,
         actionUrl: "/partners",
       })
     }

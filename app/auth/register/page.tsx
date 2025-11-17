@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Gift } from "lucide-react"
+import { Gift, HelpCircle } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect } from "react"
@@ -25,8 +25,60 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [invitationValid, setInvitationValid] = useState<boolean | null>(null)
+  const [passwordStrength, setPasswordStrength] = useState<{
+    score: number
+    feedback: string[]
+  }>({ score: 0, feedback: [] })
   const router = useRouter()
   const searchParams = useSearchParams()
+
+  // 密码强度检查函数
+  const checkPasswordStrength = (pwd: string) => {
+    const feedback: string[] = []
+    let score = 0
+
+    if (pwd.length < 8) {
+      feedback.push("密码长度至少8位")
+    } else {
+      score += 1
+    }
+
+    if (!/[a-z]/.test(pwd)) {
+      feedback.push("至少包含一个小写字母")
+    } else {
+      score += 1
+    }
+
+    if (!/[A-Z]/.test(pwd)) {
+      feedback.push("至少包含一个大写字母")
+    } else {
+      score += 1
+    }
+
+    if (!/[0-9]/.test(pwd)) {
+      feedback.push("至少包含一个数字")
+    } else {
+      score += 1
+    }
+
+    if (!/[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\\/`~]/.test(pwd)) {
+      feedback.push("至少包含一个特殊字符(!@#$%^&*等)")
+    } else {
+      score += 1
+    }
+
+    return { score, feedback }
+  }
+
+  // 监听密码变化，实时显示强度
+  useEffect(() => {
+    if (password) {
+      const strength = checkPasswordStrength(password)
+      setPasswordStrength(strength)
+    } else {
+      setPasswordStrength({ score: 0, feedback: [] })
+    }
+  }, [password])
 
   // 检查URL中的邀请码
   useEffect(() => {
@@ -65,7 +117,14 @@ export default function RegisterPage() {
       return
     }
 
-    // 2. 验证密码一致性
+    // 2. 验证密码强度
+    if (passwordStrength.score < 5) {
+      setError(`密码强度不足: ${passwordStrength.feedback.join('、')}`)
+      setIsLoading(false)
+      return
+    }
+
+    // 3. 验证密码一致性
     if (password !== confirmPassword) {
       setError("两次输入的密码不一致")
       setIsLoading(false)
@@ -140,6 +199,14 @@ export default function RegisterPage() {
           <CardContent>
             <form onSubmit={handleRegister}>
               <div className="flex flex-col gap-6">
+                {/* 密码要求提示 */}
+                <Alert className="bg-blue-50 border-blue-200">
+                  <HelpCircle className="h-4 w-4 text-blue-600" />
+                  <AlertDescription className="text-blue-700 text-xs">
+                    <strong>密码要求：</strong>至少8位，包含大小写字母、数字和特殊字符
+                  </AlertDescription>
+                </Alert>
+
                 {invitationCode && invitationValid && (
                   <Alert className="bg-green-50 border-green-200">
                     <Gift className="h-4 w-4 text-green-600" />
@@ -179,6 +246,58 @@ export default function RegisterPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                   />
+                  {password && (
+                    <div className="space-y-2">
+                      {/* 密码强度进度条 */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-600">密码强度:</span>
+                        <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full transition-all duration-300 ${
+                              passwordStrength.score <= 2
+                                ? "bg-red-500"
+                                : passwordStrength.score === 3
+                                  ? "bg-yellow-500"
+                                  : passwordStrength.score === 4
+                                    ? "bg-blue-500"
+                                    : "bg-green-500"
+                            }`}
+                            style={{ width: `${(passwordStrength.score / 5) * 100}%` }}
+                          />
+                        </div>
+                        <span
+                          className={`text-xs font-medium ${
+                            passwordStrength.score <= 2
+                              ? "text-red-600"
+                              : passwordStrength.score === 3
+                                ? "text-yellow-600"
+                                : passwordStrength.score === 4
+                                  ? "text-blue-600"
+                                  : "text-green-600"
+                          }`}
+                        >
+                          {passwordStrength.score}/5
+                        </span>
+                      </div>
+                      {/* 密码要求反馈 */}
+                      {passwordStrength.feedback.length > 0 && (
+                        <div className="space-y-1">
+                          {passwordStrength.feedback.map((item, index) => (
+                            <p key={index} className="text-xs text-red-600 flex items-center gap-1">
+                              <span className="inline-block w-1 h-1 bg-red-600 rounded-full" />
+                              {item}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                      {passwordStrength.score === 5 && (
+                        <p className="text-xs text-green-600 flex items-center gap-1">
+                          <span className="inline-block w-1 h-1 bg-green-600 rounded-full" />
+                          密码强度符合要求
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="confirm-password">确认密码</Label>

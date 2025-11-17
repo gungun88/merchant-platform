@@ -41,12 +41,16 @@ export async function checkTopExpiringMerchants() {
       const expiryDate = new Date(merchant.topped_until!)
       const daysLeft = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
 
+      // 格式化到期时间为中国时区
+      const chinaTime = new Date(expiryDate.getTime() + 8 * 60 * 60 * 1000)
+      const formattedDate = chinaTime.toISOString().split('T')[0].replace(/-/g, '/')
+
       await createNotification({
         userId: merchant.user_id,
         type: "merchant",
         category: "merchant_top_expiring",
         title: "商家置顶即将到期",
-        content: `您的商家"${merchant.name}"的置顶服务将在 ${daysLeft} 天后到期 (${expiryDate.toLocaleDateString('zh-CN')})`,
+        content: `您的商家"${merchant.name}"的置顶服务将在 ${daysLeft} 天后到期 (${formattedDate})`,
         relatedMerchantId: merchant.id,
         metadata: {
           expires_at: merchant.topped_until,

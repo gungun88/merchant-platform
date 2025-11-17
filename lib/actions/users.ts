@@ -473,8 +473,9 @@ export interface CreateUserData {
 
 /**
  * 批量转账积分给所有用户（管理员）
+ * 支持立即执行或定时执行
  */
-export async function batchTransferPoints(points: number, reason: string, targetRole?: string) {
+export async function batchTransferPoints(points: number, reason: string, targetRole?: string, activityDate?: Date) {
   const supabase = await createClient()
 
   const {
@@ -508,7 +509,59 @@ export async function batchTransferPoints(points: number, reason: string, target
     return { success: false, error: "批量转账只能增加积分，不能扣除" }
   }
 
+  if (!activityDate) {
+    return { success: false, error: "请选择活动日期" }
+  }
+
   try {
+    const scheduledTime = new Date(activityDate)
+    const now = new Date()
+
+    // 判断是立即执行还是定时执行
+    // 如果选择的时间在当前时间之后超过1分钟，则创建定时任务
+    const isScheduled = scheduledTime.getTime() > now.getTime() + 60000
+
+    if (isScheduled) {
+      // 创建定时任务
+      const { data: scheduledTask, error: insertError } = await supabase
+        .from("scheduled_point_transfers")
+        .insert({
+          created_by: user.id,
+          points,
+          reason,
+          target_role: targetRole || "all",
+          scheduled_at: scheduledTime.toISOString(),
+          status: "pending",
+        })
+        .select()
+        .single()
+
+      if (insertError) {
+        console.error("Error creating scheduled task:", insertError)
+        return { success: false, error: insertError.message }
+      }
+
+      // 手动转换为中国时区 (UTC+8)
+      const chinaTime = new Date(scheduledTime.getTime() + 8 * 60 * 60 * 1000)
+      const dateStr = chinaTime.toLocaleString("zh-CN", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "UTC"  // 使用UTC因为我们已经手动加了8小时
+      })
+
+      revalidatePath("/admin/users")
+      return {
+        success: true,
+        scheduled: true,
+        scheduledAt: scheduledTime.toISOString(),
+        message: `已创建定时转账任务，将在 ${dateStr} 自动执行`
+      }
+    }
+
+    // 立即执行转账
     // 获取目标用户列表（排除管理员，排除已封禁用户）
     let query = supabase
       .from("profiles")
@@ -546,6 +599,16 @@ export async function batchTransferPoints(points: number, reason: string, target
       return { success: false, error: "没有找到符合条件的用户" }
     }
 
+    // 格式化活动日期用于通知消息 (明确指定中国时区)
+    const dateStr = scheduledTime.toLocaleString("zh-CN", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: "Asia/Shanghai"
+    })
+
     // 批量更新用户积分
     const updatePromises = targetUsers.map(async (targetUser) => {
       const newPoints = (targetUser.points || 0) + points
@@ -564,13 +627,24 @@ export async function batchTransferPoints(points: number, reason: string, target
         return { userId: targetUser.id, success: false, error: updateError.message }
       }
 
-      // 发送通知
+      // 创建积分交易记录
+      await supabase.from("point_transactions").insert({
+        user_id: targetUser.id,
+        amount: points,
+        balance_after: newPoints,
+        type: "points_reward",
+        description: `${reason}（活动日期：${dateStr}）`,
+      })
+
+      // 发送通知 - 包含日期信息
+      const notificationContent = `您获得了 ${points} 积分。原因：${reason}（活动日期：${dateStr}）。当前积分：${newPoints}`
+
       await supabase.from("notifications").insert({
         user_id: targetUser.id,
         type: "points_reward",
         category: "system",
         title: "积分奖励",
-        content: `您获得了 ${points} 积分。原因：${reason}。当前积分：${newPoints}`,
+        content: notificationContent,
         priority: "normal",
       })
 
@@ -586,10 +660,11 @@ export async function batchTransferPoints(points: number, reason: string, target
     revalidatePath("/admin/users")
     return {
       success: true,
+      scheduled: false,
       totalUsers: targetUsers.length,
       successCount,
       failCount,
-      message: `成功给 ${successCount} 位用户转账 ${points} 积分${failCount > 0 ? `，${failCount} 位用户转账失败` : ""}`
+      message: `立即转账完成：成功给 ${successCount} 位用户转账 ${points} 积分${failCount > 0 ? `，${failCount} 位用户转账失败` : ""}`
     }
   } catch (error: any) {
     console.error("Error in batchTransferPoints:", error)

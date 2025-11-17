@@ -124,7 +124,7 @@ export async function viewContact(merchantId: string) {
       metadata: { points_deducted: merchantDeduct },
     })
 
-    // 检查商家积分余额,低于100时发送预警
+    // 检查商家积分余额,使用系统配置的阈值
     const { data: updatedMerchantProfile } = await supabase
       .from("profiles")
       .select("points")
@@ -132,20 +132,21 @@ export async function viewContact(merchantId: string) {
       .maybeSingle()
 
     const merchantRemainingPoints = updatedMerchantProfile?.points || 0
-    if (merchantRemainingPoints < 100) {
+    const lowPointsThreshold = settings?.low_points_threshold || 100
+    if (merchantRemainingPoints < lowPointsThreshold) {
       await createNotification({
         userId: merchantProfile.id,
         type: "transaction",
         category: "low_points_warning",
         title: "积分余额不足",
         content: `您的积分余额仅剩 ${merchantRemainingPoints} 分,建议及时获取积分以便继续使用平台服务`,
-        metadata: { remaining_points: merchantRemainingPoints, threshold: 100 },
+        metadata: { remaining_points: merchantRemainingPoints, threshold: lowPointsThreshold },
         priority: "high",
       })
     }
   }
 
-  // 检查查看者积分余额,低于100时发送预警
+  // 检查查看者积分余额,使用系统配置的阈值
   const { data: updatedViewerProfile } = await supabase
     .from("profiles")
     .select("points")
@@ -153,14 +154,15 @@ export async function viewContact(merchantId: string) {
     .maybeSingle()
 
   const viewerRemainingPoints = updatedViewerProfile?.points || 0
-  if (viewerRemainingPoints < 100) {
+  const lowPointsThreshold = settings?.low_points_threshold || 100
+  if (viewerRemainingPoints < lowPointsThreshold) {
     await createNotification({
       userId: user.id,
       type: "transaction",
       category: "low_points_warning",
       title: "积分余额不足",
       content: `您的积分余额仅剩 ${viewerRemainingPoints} 分,建议及时获取积分以便继续使用平台服务`,
-      metadata: { remaining_points: viewerRemainingPoints, threshold: 100 },
+      metadata: { remaining_points: viewerRemainingPoints, threshold: lowPointsThreshold },
       priority: "high",
     })
   }

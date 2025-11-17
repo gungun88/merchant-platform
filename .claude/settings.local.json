@@ -63,7 +63,9 @@
       "Bash(touch:*)",
       "Bash(where:*)",
       "Bash(git diff-tree:*)",
-      "Bash(del:*)"
+      "Bash(del:*)",
+      "Bash(\"c:\\Users\\ATZ\\Desktop\\商家展示\\app\\admin\\users\\page.tsx\")",
+      "Bash(Select-Object -Last 10)"
     ],
     "deny": [],
     "ask": []

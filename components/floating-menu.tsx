@@ -23,7 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { getPlatformContact } from "@/lib/actions/settings"
+import { getPlatformContact, getSystemSettings } from "@/lib/actions/settings"
 import { toast } from "sonner"
 
 interface PlatformContact {
@@ -38,6 +38,7 @@ export function FloatingMenu() {
   const [contactDialogOpen, setContactDialogOpen] = useState(false)
   const [platformContact, setPlatformContact] = useState<PlatformContact | null>(null)
   const [copiedField, setCopiedField] = useState<string | null>(null)
+  const [coinExchangeUrl, setCoinExchangeUrl] = useState<string | null>(null)
 
   // 监听滚动，控制"返回顶部"按钮显示
   useEffect(() => {
@@ -47,6 +48,17 @@ export function FloatingMenu() {
 
     window.addEventListener("scroll", handleScroll)
     return () => window.removeEventListener("scroll", handleScroll)
+  }, [])
+
+  // 加载系统设置（获取积分兑换外链）
+  useEffect(() => {
+    async function loadSettings() {
+      const result = await getSystemSettings()
+      if (result.success && result.data) {
+        setCoinExchangeUrl(result.data.coin_exchange_url)
+      }
+    }
+    loadSettings()
   }, [])
 
   // 加载平台联系方式
@@ -77,6 +89,16 @@ export function FloatingMenu() {
       setTimeout(() => setCopiedField(null), 2000)
     } catch (error) {
       toast.error("复制失败，请手动复制")
+    }
+  }
+
+  // 处理兑换积分点击
+  const handleCoinExchange = () => {
+    if (coinExchangeUrl && coinExchangeUrl.trim()) {
+      window.open(coinExchangeUrl, "_blank")
+    } else {
+      // 如果没有配置外链，跳转到帮助中心
+      window.location.href = "/help#coin-exchange"
     }
   }
 
@@ -112,7 +134,7 @@ export function FloatingMenu() {
     {
       icon: Coins,
       label: "兑换积分",
-      href: "/help#coin-exchange",
+      onClick: handleCoinExchange,
       color: "text-orange-600",
       bgColor: "hover:bg-orange-50",
     },

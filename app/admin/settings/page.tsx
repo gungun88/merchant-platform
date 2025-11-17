@@ -773,6 +773,65 @@ export default function SystemSettingsPage() {
             </div>
           </div>
 
+          {/* 显示配置 */}
+          <div>
+            <h3 className="text-sm font-semibold mb-3 px-1">显示配置</h3>
+            <div className="border rounded-lg overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[200px]">配置项</TableHead>
+                    <TableHead>配置值</TableHead>
+                    <TableHead className="w-[300px]">说明</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRow>
+                    <TableCell className="font-medium">每页显示商家数量</TableCell>
+                    <TableCell>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="100"
+                        value={formData.merchants_per_page || 20}
+                        onChange={(e) => setFormData({ ...formData, merchants_per_page: Number(e.target.value) })}
+                        className="w-32"
+                      />
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">首页商家列表每页显示的数量（1-100）</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium">积分兑换外链</TableCell>
+                    <TableCell>
+                      <Input
+                        type="url"
+                        placeholder="https://example.com/exchange"
+                        value={formData.coin_exchange_url || ""}
+                        onChange={(e) => setFormData({ ...formData, coin_exchange_url: e.target.value })}
+                        className="w-full"
+                      />
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">导航栏"兑换积分"按钮跳转地址（为空则跳转帮助中心）</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium">积分不足预警阈值</TableCell>
+                    <TableCell>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="1000"
+                        value={formData.low_points_threshold || 100}
+                        onChange={(e) => setFormData({ ...formData, low_points_threshold: Number(e.target.value) })}
+                        className="w-32"
+                      />
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">当用户积分低于此值时发送预警通知（0-1000）</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+
           {/* 邮箱验证配置 */}
           <div>
             <h3 className="text-sm font-semibold mb-3 px-1 flex items-center gap-2">

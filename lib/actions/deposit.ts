@@ -1234,6 +1234,29 @@ export async function approveDepositRefundApplication(applicationId: string, tra
       metadata: { transaction_hash: transactionHash },
     })
 
+    // 🆕 记录押金手续费收入到 platform_income 表
+    const { error: incomeError } = await adminClient.from("platform_income").insert({
+      income_type: "deposit_fee",
+      amount: application.fee_amount,
+      merchant_id: application.merchant_id,
+      user_id: application.merchants.user_id,
+      description: `押金退还手续费 - ${application.merchants.name}`,
+      details: {
+        original_deposit: application.deposit_amount,
+        refund_amount: application.refund_amount,
+        fee_rate: application.fee_rate,
+        merchant_name: application.merchants.name,
+        refund_application_id: applicationId,
+        transaction_hash: transactionHash,
+        deposit_paid_at: application.deposit_paid_at,
+      },
+    })
+
+    if (incomeError) {
+      console.error("记录平台收入失败:", incomeError)
+      // 不中断流程，只记录错误
+    }
+
     // 记录管理员操作日志（使用 admin client）
     await adminClient.from("admin_operation_logs").insert({
       admin_id: user.id,
@@ -1251,6 +1274,7 @@ export async function approveDepositRefundApplication(applicationId: string, tra
 
     revalidatePath("/merchant/dashboard")
     revalidatePath("/admin/deposits/refunds")
+    revalidatePath("/admin/income")
     revalidatePath("/")
 
     return {

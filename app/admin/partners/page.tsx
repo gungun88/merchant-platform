@@ -607,8 +607,13 @@ export default function AdminPartnersPage() {
                                 size="sm"
                                 variant="ghost"
                                 onClick={() => openNotesDialog(partner)}
+                                className="h-8 w-8 p-0"
                               >
-                                <MessageSquare className="h-4 w-4" />
+                                {partner.admin_notes ? (
+                                  <MessageSquare className="h-4 w-4 text-blue-600 fill-blue-100" />
+                                ) : (
+                                  <MessageSquare className="h-4 w-4 text-gray-400" />
+                                )}
                               </Button>
                               {partner.status === "pending" && (
                                 <>

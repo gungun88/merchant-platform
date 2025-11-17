@@ -41,6 +41,7 @@ const TRANSACTION_TYPES = {
   contact_viewed: { label: "联系方式被查看", icon: Eye, color: "text-orange-600" },
   topped_promotion: { label: "置顶推广", icon: ArrowUp, color: "text-red-600" },
   profile_complete: { label: "完善资料", icon: Settings, color: "text-blue-600" },
+  points_reward: { label: "积分奖励", icon: Award, color: "text-yellow-600" },
   system_adjustment: { label: "系统调整", icon: Settings, color: "text-gray-600" },
 }
 
@@ -178,6 +179,7 @@ export default function PointsHistoryPage() {
                             <SelectItem value="view_contact">查看联系方式</SelectItem>
                             <SelectItem value="contact_viewed">联系方式被查看</SelectItem>
                             <SelectItem value="topped_promotion">置顶推广</SelectItem>
+                            <SelectItem value="points_reward">积分奖励</SelectItem>
                             <SelectItem value="system_adjustment">系统调整</SelectItem>
                           </SelectContent>
                         </Select>
