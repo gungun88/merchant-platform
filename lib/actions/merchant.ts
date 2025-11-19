@@ -253,10 +253,25 @@ export async function getUserMerchant() {
   } = await supabase.auth.getUser()
 
   if (!user) {
+    console.log('[getUserMerchant] 用户未登录')
     return null
   }
 
-  const { data: merchant } = await supabase.from("merchants").select("*").eq("user_id", user.id).maybeSingle()
+  console.log('[getUserMerchant] 查询商家信息, user_id:', user.id)
+
+  const { data: merchant, error } = await supabase
+    .from("merchants")
+    .select("*")
+    .eq("user_id", user.id)
+    .maybeSingle()
+
+  if (error) {
+    console.error('[getUserMerchant] 查询失败:', error)
+    // RLS策略可能阻止了查询，返回null而不是抛出错误
+    return null
+  }
+
+  console.log('[getUserMerchant] 查询成功:', merchant ? `找到商家 ${merchant.name}` : '未找到商家')
 
   return merchant
 }
