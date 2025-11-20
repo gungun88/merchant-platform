@@ -89,33 +89,16 @@ export async function updateProfile(data: {
       const settingsResult = await getSystemSettings()
       const bonusPoints = settingsResult.data?.upload_avatar_reward || 30
 
-      // 获取当前积分
-      const { data: profile, error: pointsError } = await supabase
-        .from("profiles")
-        .select("points")
-        .eq("id", user.id)
-        .single()
-
-      if (!pointsError && profile) {
-        const newPoints = profile.points + bonusPoints
-
-        // 更新积分
-        await supabase
-          .from("profiles")
-          .update({ points: newPoints })
-          .eq("id", user.id)
-
-        // 记录积分交易
-        await supabase.rpc("record_point_transaction", {
-          p_user_id: user.id,
-          p_amount: bonusPoints,
-          p_type: "profile_complete",
-          p_description: "首次上传头像奖励",
-          p_related_user_id: null,
-          p_related_merchant_id: null,
-          p_metadata: null,
-        })
-      }
+      // 记录积分交易（函数内部会自动更新用户积分）
+      await supabase.rpc("record_point_transaction", {
+        p_user_id: user.id,
+        p_amount: bonusPoints,
+        p_type: "profile_complete",
+        p_description: "首次上传头像奖励",
+        p_related_user_id: null,
+        p_related_merchant_id: null,
+        p_metadata: null,
+      })
 
       revalidatePath("/settings")
       revalidatePath("/")

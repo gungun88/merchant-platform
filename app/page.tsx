@@ -22,6 +22,7 @@ import { ShareMerchantDialog } from "@/components/share-merchant-dialog"
 import { MerchantNoteDialog } from "@/components/merchant-note-dialog"
 import { FloatingMenu } from "@/components/floating-menu"
 import { AnnouncementBanner } from "@/components/announcement-banner"
+import { MerchantListSkeleton } from "@/components/merchant-list-skeleton"
 import {
   Search,
   RefreshCw,
@@ -44,7 +45,7 @@ import {
   Pin,
   Layers3,
 } from "lucide-react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import {
   getMerchants,
   editMerchant,
@@ -73,6 +74,7 @@ export default function MerchantCenter() {
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const [loading, setLoading] = useState(true)
+  const [initializing, setInitializing] = useState(true) // 添加初始化状态
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [userMerchant, setUserMerchant] = useState<any>(null)
   const [userPoints, setUserPoints] = useState(0)
@@ -101,58 +103,88 @@ export default function MerchantCenter() {
     search: "",
   })
 
+  // 优化：分阶段加载 + 本地缓存
   useEffect(() => {
-    async function loadServiceTypes() {
-      const types = await getAllServiceTypes()
-      setServiceTypes(types)
-    }
-    loadServiceTypes()
-  }, [])
+    async function loadInitialData() {
+      const supabase = createClient()
 
-  useEffect(() => {
-    async function loadSystemSettings() {
-      const result = await getSystemSettings()
-      if (result.success && result.data) {
-        setSystemSettings(result.data)
-        // 设置每页显示数量
-        if (result.data.merchants_per_page) {
-          setPageSize(result.data.merchants_per_page)
+      // 第一步：立即从缓存加载静态数据，快速渲染界面
+      const cachedServiceTypes = localStorage.getItem('cached_service_types')
+      const cachedSettings = localStorage.getItem('cached_system_settings')
+      const cacheTimestamp = localStorage.getItem('cache_timestamp')
+      const now = Date.now()
+      const CACHE_DURATION = 5 * 60 * 1000 // 5分钟缓存
+
+      // 如果缓存有效（5分钟内），先用缓存数据快速渲染
+      if (cacheTimestamp && (now - parseInt(cacheTimestamp)) < CACHE_DURATION) {
+        if (cachedServiceTypes) {
+          setServiceTypes(JSON.parse(cachedServiceTypes))
+        }
+        if (cachedSettings) {
+          const settings = JSON.parse(cachedSettings)
+          setSystemSettings(settings)
+          if (settings.merchants_per_page) {
+            setPageSize(settings.merchants_per_page)
+          }
         }
       }
-    }
-    loadSystemSettings()
-  }, [])
 
-  useEffect(() => {
-    async function loadUser() {
-      const supabase = createClient()
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
+      // 第二步：获取用户信息（最重要，优先加载）
+      const { data: { user } } = await supabase.auth.getUser()
 
       if (user) {
         setCurrentUserId(user.id)
+      }
 
-        // 获取用户的商家信息
-        const { data: merchantData } = await supabase.from("merchants").select("*").eq("user_id", user.id).maybeSingle()
+      // 第三步：后台并行刷新静态数据并更新缓存
+      Promise.all([
+        getAllServiceTypes(),
+        getSystemSettings(),
+      ]).then(([serviceTypesResult, settingsResult]) => {
+        // 更新服务类型
+        setServiceTypes(serviceTypesResult)
+        localStorage.setItem('cached_service_types', JSON.stringify(serviceTypesResult))
 
-        if (merchantData) {
-          setUserMerchant(merchantData)
+        // 更新系统配置
+        if (settingsResult.success && settingsResult.data) {
+          setSystemSettings(settingsResult.data)
+          localStorage.setItem('cached_system_settings', JSON.stringify(settingsResult.data))
+          if (settingsResult.data.merchants_per_page) {
+            setPageSize(settingsResult.data.merchants_per_page)
+          }
         }
 
-        // 获取用户积分
-        const points = await getUserPoints(user.id)
-        setUserPoints(points)
+        // 更新缓存时间戳
+        localStorage.setItem('cache_timestamp', now.toString())
+      })
 
-        // 获取用户的所有备注
-        const notesResult = await getAllMerchantNotes()
-        if (notesResult.success) {
-          setMerchantNotes(notesResult.data)
-        }
+      // 第四步：如果有用户登录，延迟加载用户数据（不阻塞界面渲染）
+      if (user) {
+        // 先标记初始化完成，让界面先显示
+        setInitializing(false)
+
+        // 延迟100ms再加载用户详细数据，让界面先渲染
+        setTimeout(() => {
+          Promise.all([
+            supabase.from("merchants").select("*").eq("user_id", user.id).maybeSingle(),
+            getUserPoints(user.id),
+            getAllMerchantNotes(),
+          ]).then(([merchantData, points, notesResult]) => {
+            if (merchantData.data) {
+              setUserMerchant(merchantData.data)
+            }
+            setUserPoints(points)
+            if (notesResult.success) {
+              setMerchantNotes(notesResult.data)
+            }
+          })
+        }, 100)
+      } else {
+        setInitializing(false)
       }
     }
 
-    loadUser()
+    loadInitialData()
   }, [])
 
   useEffect(() => {
@@ -170,9 +202,10 @@ export default function MerchantCenter() {
     loadMerchants()
   }, [filters, currentPage, pageSize])
 
-  // 添加 Supabase 实时订阅
+  // 优化：使用防抖的实时订阅，避免频繁重新加载
   useEffect(() => {
     const supabase = createClient()
+    let debounceTimer: NodeJS.Timeout | null = null
 
     // 订阅商家表的变化
     const channel = supabase
@@ -186,8 +219,13 @@ export default function MerchantCenter() {
         },
         (payload) => {
           console.log('✅ [前台商家列表] 商家数据变化:', payload)
-          // 当数据库有任何变化时，自动重新加载商家列表
-          const loadMerchants = async () => {
+
+          // 使用防抖，避免短时间内多次变化导致频繁加载
+          if (debounceTimer) {
+            clearTimeout(debounceTimer)
+          }
+
+          debounceTimer = setTimeout(async () => {
             const result = await getMerchants({
               ...filters,
               page: currentPage,
@@ -195,16 +233,18 @@ export default function MerchantCenter() {
             })
             setMerchants(result.merchants)
             setTotalMerchants(result.total)
-          }
-          loadMerchants()
+          }, 1000) // 1秒防抖
         }
       )
       .subscribe((status) => {
         console.log('📡 [前台商家列表] 订阅状态:', status)
       })
 
-    // 清理函数：组件卸载时取消订阅
+    // 清理函数：组件卸载时取消订阅和定时器
     return () => {
+      if (debounceTimer) {
+        clearTimeout(debounceTimer)
+      }
       supabase.removeChannel(channel)
     }
   }, [filters, currentPage, pageSize])
@@ -709,9 +749,7 @@ export default function MerchantCenter() {
           </div>
 
           {loading ? (
-            <Card className="p-8 text-center">
-              <p className="text-muted-foreground">加载中...</p>
-            </Card>
+            <MerchantListSkeleton />
           ) : merchants.length === 0 ? (
             <Card className="p-8 text-center">
               <p className="text-muted-foreground">暂无商家数据</p>
@@ -746,7 +784,7 @@ export default function MerchantCenter() {
                       return (
                         <TableRow
                           key={merchant.id}
-                          className={`hover:bg-muted/50 ${isOwnMerchantRow ? 'bg-blue-50/50 dark:bg-blue-950/20 border-l-4 border-l-blue-500' : ''}`}
+                          className={`hover:bg-muted/50 ${isOwnMerchantRow ? 'bg-blue-100/80 dark:bg-blue-900/40 border-l-4 border-l-blue-600 shadow-sm' : ''}`}
                         >
                           <TableCell>
                             <div className="flex items-center gap-3">
@@ -1065,230 +1103,178 @@ export default function MerchantCenter() {
             </Card>
 
             {/* 移动端：卡片布局 */}
-            <div className="lg:hidden space-y-4">
+            <div className="lg:hidden space-y-3">
               {merchants.map((merchant) => {
                 const isOwnMerchantCard = userMerchant?.id === merchant.id
                 return (
                   <Card
                     key={merchant.id}
-                    className={`p-4 ${
+                    className={`p-3 ${
                       merchant.is_deposit_merchant
                         ? 'border-2 border-yellow-500 shadow-lg shadow-yellow-200/50'
                         : isOwnMerchantCard
-                        ? 'border-2 border-blue-500 bg-blue-50/30 dark:bg-blue-950/20'
+                        ? 'border-2 border-blue-600 bg-blue-100/50 dark:bg-blue-900/30 shadow-md'
                         : ''
                     }`}
                   >
-                    {/* 头部：Logo + 名称 */}
-                    <div className="flex items-start gap-3 mb-4">
+                    {/* 头部：Logo + 名称 + 操作菜单 */}
+                    <div className="flex items-start gap-2.5 mb-2">
                       <div className="relative flex-shrink-0">
-                        <Avatar className={`h-14 w-14 ${merchant.is_deposit_merchant ? 'ring-2 ring-yellow-500 ring-offset-2' : ''}`}>
+                        <Avatar className={`h-12 w-12 ${merchant.is_deposit_merchant ? 'ring-2 ring-yellow-500 ring-offset-1' : ''}`}>
                           <AvatarImage src={merchant.logo || "/placeholder.svg"} />
                           <AvatarFallback>{merchant.name[0]}</AvatarFallback>
                         </Avatar>
                         {/* 头像图标 - 官方置顶优先,自助置顶Pin次之,最后是押金Crown */}
                         {merchant.pin_type === "admin" ? (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className="absolute -top-1 -right-1 rounded-full p-1.5 shadow-lg cursor-help" style={{ backgroundColor: '#2864b4' }}>
-                                <Layers3 className="h-4 w-4 text-white" />
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent side="top">
-                              <p className="text-xs">官方置顶</p>
-                            </TooltipContent>
-                          </Tooltip>
+                          <div className="absolute -top-0.5 -right-0.5 rounded-full p-1 shadow-md" style={{ backgroundColor: '#2864b4' }}>
+                            <Layers3 className="h-3 w-3 text-white" />
+                          </div>
                         ) : merchant.pin_type === "self" || merchant.is_topped ? (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className="absolute -top-1 -right-1 bg-red-500 rounded-full p-1 shadow-lg cursor-help">
-                                <Pin className="h-4 w-4 text-white" fill="currentColor" />
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent side="top">
-                              <p className="text-xs">自助置顶</p>
-                            </TooltipContent>
-                          </Tooltip>
+                          <div className="absolute -top-0.5 -right-0.5 bg-red-500 rounded-full p-0.5 shadow-md">
+                            <Pin className="h-3 w-3 text-white" fill="currentColor" />
+                          </div>
                         ) : merchant.is_deposit_merchant ? (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className="absolute -top-1 -right-1 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full p-1 shadow-lg cursor-help">
-                                <Crown className="h-4 w-4 text-white" fill="currentColor" />
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent side="top">
-                              <p className="text-xs">押金商家</p>
-                            </TooltipContent>
-                          </Tooltip>
+                          <div className="absolute -top-0.5 -right-0.5 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full p-0.5 shadow-md">
+                            <Crown className="h-3 w-3 text-white" fill="currentColor" />
+                          </div>
                         ) : null}
                       </div>
+
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <h3 className="font-semibold text-base truncate">{merchant.name}</h3>
-                            {merchantNotes[merchant.id] && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <StickyNote className="h-4 w-4 text-amber-500 cursor-help flex-shrink-0" />
-                                </TooltipTrigger>
-                                <TooltipContent side="bottom" className="max-w-xs">
-                                  <p className="text-xs">{merchantNotes[merchant.id]}</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
-                          </div>
-                          <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            {isOwnMerchant(merchant.user_id) ? (
-                              <>
-                                <DropdownMenuItem onClick={() => handleEditMerchant(merchant.id)}>
-                                  <Edit className="h-4 w-4 mr-2" />
-                                  编辑
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleViewDetail(merchant.id)}>
-                                  <Eye className="h-4 w-4 mr-2" />
-                                  查看详情
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleOpenTopDialog(merchant.id)}>
-                                  <TrendingUp className="h-4 w-4 mr-2" />
-                                  置顶推广
-                                </DropdownMenuItem>
-                              </>
-                            ) : (
-                              <>
-                                <DropdownMenuItem onClick={() => handleViewDetail(merchant.id)}>
-                                  <Eye className="h-4 w-4 mr-2" />
-                                  查看详情
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleFavorite(merchant.id)}>
-                                  <Star className="h-4 w-4 mr-2" />
-                                  收藏
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleNote(merchant.id, merchant.name)}>
-                                  <StickyNote className="h-4 w-4 mr-2" />
-                                  添加备注
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleShare(merchant.id, merchant.name)}>
-                                  <Share2 className="h-4 w-4 mr-2" />
-                                  分享商家
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleReport(merchant.id, merchant.name)}>
-                                  <AlertTriangle className="h-4 w-4 mr-2" />
-                                  举报
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                        </div>
-                        <div className="flex items-center gap-2 mt-1 flex-wrap">
-                        {merchant.is_deposit_merchant && (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Badge variant="default" className="text-xs bg-yellow-500 cursor-help">
-                                押金商家
+                        <div className="flex items-start justify-between gap-1.5">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <h3 className="font-semibold text-sm truncate">{merchant.name}</h3>
+                              {merchantNotes[merchant.id] && (
+                                <StickyNote className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {merchant.is_deposit_merchant && (
+                                <Badge variant="default" className="text-[10px] px-1.5 py-0 h-4 bg-yellow-500">
+                                  押金
+                                </Badge>
+                              )}
+                              <Badge
+                                variant={merchant.is_deposit_merchant ? "default" : "secondary"}
+                                className={`text-[10px] px-1.5 py-0 h-4 ${
+                                  merchant.is_deposit_merchant
+                                    ? "bg-green-600 hover:bg-green-700 text-white"
+                                    : ""
+                                }`}
+                              >
+                                {merchant.is_deposit_merchant ? "已认证" : "未认证"}
                               </Badge>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>押金金额: {merchant.deposit_amount || 500} USDT</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        )}
-                        <Badge
-                          variant={merchant.is_deposit_merchant ? "default" : "secondary"}
-                          className={
-                            merchant.is_deposit_merchant
-                              ? "text-xs bg-green-600 hover:bg-green-700 text-white"
-                              : "text-xs"
-                          }
-                        >
-                          {merchant.is_deposit_merchant ? "已认证" : "未认证"}
-                        </Badge>
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <MapPin className="h-3 w-3" />
-                          {merchant.location || "未知"}
+                              <div className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                                <MapPin className="h-2.5 w-2.5" />
+                                {merchant.location || "未知"}
+                              </div>
+                              <div className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                                <div className={`h-1.5 w-1.5 rounded-full ${merchant.response_time <= 10 ? "bg-green-500" : "bg-yellow-500"}`} />
+                                {formatResponseTime(merchant.response_time)}
+                              </div>
+                            </div>
+                          </div>
+
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0">
+                                <MoreVertical className="h-3.5 w-3.5" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {isOwnMerchant(merchant.user_id) ? (
+                                <>
+                                  <DropdownMenuItem onClick={() => handleEditMerchant(merchant.id)}>
+                                    <Edit className="h-4 w-4 mr-2" />
+                                    编辑
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleViewDetail(merchant.id)}>
+                                    <Eye className="h-4 w-4 mr-2" />
+                                    查看详情
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleOpenTopDialog(merchant.id)}>
+                                    <TrendingUp className="h-4 w-4 mr-2" />
+                                    置顶推广
+                                  </DropdownMenuItem>
+                                </>
+                              ) : (
+                                <>
+                                  <DropdownMenuItem onClick={() => handleViewDetail(merchant.id)}>
+                                    <Eye className="h-4 w-4 mr-2" />
+                                    查看详情
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleFavorite(merchant.id)}>
+                                    <Star className="h-4 w-4 mr-2" />
+                                    收藏
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleNote(merchant.id, merchant.name)}>
+                                    <StickyNote className="h-4 w-4 mr-2" />
+                                    添加备注
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleShare(merchant.id, merchant.name)}>
+                                    <Share2 className="h-4 w-4 mr-2" />
+                                    分享商家
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleReport(merchant.id, merchant.name)}>
+                                    <AlertTriangle className="h-4 w-4 mr-2" />
+                                    举报
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* 服务类型 */}
-                  <div className="mb-3">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {merchant.service_types.map((type: string, i: number) => (
-                        <Badge key={i} variant="secondary" className="text-xs">
-                          {type}
-                        </Badge>
-                      ))}
+                    {/* 服务类型和价格 */}
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <div className="flex items-center gap-1.5 flex-wrap flex-1">
+                        {merchant.service_types.slice(0, 2).map((type: string, i: number) => (
+                          <Badge key={i} variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
+                            {type}
+                          </Badge>
+                        ))}
+                        {merchant.service_types.length > 2 && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">
+                            +{merchant.service_types.length - 2}
+                          </Badge>
+                        )}
+                      </div>
+                      <Badge variant="outline" className="font-semibold text-xs px-2 shrink-0">
+                        {formatPrice(merchant.price_range)}
+                      </Badge>
                     </div>
-                  </div>
 
-                  {/* 描述 */}
-                  <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-                    {merchant.description}
-                  </p>
+                    {/* 描述 */}
+                    <p className="text-xs text-muted-foreground mb-2 line-clamp-2 leading-relaxed">
+                      {merchant.description}
+                    </p>
 
-                  {/* 详细信息 */}
-                  <div className="grid grid-cols-2 gap-3 mb-4 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">价格：</span>
-                      <span className="font-semibold">{formatPrice(merchant.price_range)}</span>
+                    {/* 底部信息行 */}
+                    <div className="flex items-center justify-between gap-2 pt-2 border-t">
+                      <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                        <span className="flex items-center gap-0.5">
+                          <CreditCard className="h-3 w-3" />
+                          {merchant.payment_methods[0]}
+                          {merchant.payment_methods.length > 1 && `+${merchant.payment_methods.length - 1}`}
+                        </span>
+                        <span className="flex items-center gap-0.5">
+                          <Shield className="h-3 w-3" />
+                          {merchant.warranties[0]}
+                          {merchant.warranties.length > 1 && `+${merchant.warranties.length - 1}`}
+                        </span>
+                      </div>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="h-7 text-xs px-3"
+                        onClick={() => handleContactClick(merchant.id, merchant.name)}
+                      >
+                        立即咨询
+                      </Button>
                     </div>
-                    <div>
-                      <span className="text-muted-foreground">库存：</span>
-                      <span className={merchant.stock_status?.includes("充足") || merchant.stock_status?.includes("500+") ? "text-green-600 font-medium" : ""}>
-                        {merchant.stock_status || "现货"}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">响应：</span>
-                      <span className="font-medium">{formatResponseTime(merchant.response_time)}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">入驻：</span>
-                      <span>{calculateJoinDays(merchant.created_at)}天</span>
-                    </div>
-                  </div>
-
-                  {/* 支付方式 */}
-                  <div className="mb-3">
-                    <div className="text-xs text-muted-foreground mb-1">支付方式</div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {merchant.payment_methods.map((method: string, i: number) => (
-                        <Badge key={i} variant="outline" className="text-xs">
-                          <CreditCard className="h-3 w-3 mr-1" />
-                          {method}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* 售后保障 */}
-                  <div className="mb-4">
-                    <div className="text-xs text-muted-foreground mb-1">售后保障</div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {merchant.warranties.map((item: string, i: number) => (
-                        <Badge key={i} variant="outline" className="text-xs">
-                          <Shield className="h-3 w-3 mr-1" />
-                          {item}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* 操作按钮 */}
-                  <Button
-                    variant="default"
-                    className="w-full"
-                    onClick={() => handleContactClick(merchant.id, merchant.name)}
-                  >
-                    立即咨询
-                  </Button>
                 </Card>
                 )
               })}

@@ -6,6 +6,79 @@ import { addPointsLog, updateUserPoints } from "./points"
 import { createNotification } from "./notifications"
 import { getSystemSettings } from "./settings"
 
+/**
+ * 检查并重置用户的邀请次数（如果需要）
+ * @param userId 用户ID
+ * @returns 重置后的用户邀请信息
+ */
+async function checkAndResetInvitations(userId: string) {
+  const supabase = await createClient()
+
+  // 获取系统设置
+  const settingsResult = await getSystemSettings()
+  const monthlyResetEnabled = settingsResult.data?.invitation_monthly_reset ?? true
+  const systemMaxInvitations = settingsResult.data?.max_invitations_per_user || 5
+
+  // 如果未启用按月重置，直接返回当前信息
+  if (!monthlyResetEnabled) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("max_invitations, used_invitations, invitation_reset_month")
+      .eq("id", userId)
+      .maybeSingle()
+
+    return {
+      maxInvitations: profile?.max_invitations || systemMaxInvitations,
+      usedInvitations: profile?.used_invitations || 0,
+      needsReset: false
+    }
+  }
+
+  // 获取当前月份（格式：YYYY-MM）
+  const currentMonth = new Date().toISOString().substring(0, 7) // "2025-11"
+
+  // 获取用户的邀请信息
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("max_invitations, used_invitations, invitation_reset_month")
+    .eq("id", userId)
+    .maybeSingle()
+
+  const maxInvitations = profile?.max_invitations || systemMaxInvitations
+  const usedInvitations = profile?.used_invitations || 0
+  const lastResetMonth = profile?.invitation_reset_month || currentMonth
+
+  // 如果上次重置的月份不是当前月份，需要重置
+  if (lastResetMonth !== currentMonth) {
+    // 重置 used_invitations 为 0，并更新 invitation_reset_month
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        used_invitations: 0,
+        invitation_reset_month: currentMonth
+      })
+      .eq("id", userId)
+
+    if (error) {
+      console.error("重置邀请次数失败:", error)
+    } else {
+      console.log(`用户 ${userId} 的邀请次数已重置（从 ${lastResetMonth} 到 ${currentMonth}）`)
+    }
+
+    return {
+      maxInvitations,
+      usedInvitations: 0, // 重置后为 0
+      needsReset: true
+    }
+  }
+
+  return {
+    maxInvitations,
+    usedInvitations,
+    needsReset: false
+  }
+}
+
 // 生成或获取用户的邀请码
 export async function getUserInvitationCode() {
   const supabase = await createClient()
@@ -18,12 +91,22 @@ export async function getUserInvitationCode() {
     throw new Error("请先登录")
   }
 
+  // 检查并重置邀请次数（如果需要）
+  const { maxInvitations, usedInvitations } = await checkAndResetInvitations(user.id)
+
+  const remainingInvitations = Math.max(maxInvitations - usedInvitations, 0)
+
   // 从 profile 中查询邀请码
   const { data: profile } = await supabase
     .from("profiles")
     .select("invitation_code")
     .eq("id", user.id)
     .maybeSingle()
+
+  // 如果没有剩余次数，不允许生成邀请码（但如果已有邀请码，仍然返回）
+  if (remainingInvitations <= 0 && !profile?.invitation_code) {
+    throw new Error("您的邀请次数已用完，无法生成新的邀请码")
+  }
 
   // 如果已有邀请码，直接返回
   if (profile?.invitation_code) {
@@ -61,6 +144,11 @@ export async function getInvitationStats() {
   if (!user) {
     throw new Error("请先登录")
   }
+
+  // 检查并重置邀请次数（如果需要）
+  const { maxInvitations, usedInvitations, needsReset } = await checkAndResetInvitations(user.id)
+
+  const remainingInvitations = Math.max(maxInvitations - usedInvitations, 0)
 
   // 只统计真实的邀请记录（invitee_id 不为空的记录）
   const { data: invitations, error } = await supabase
@@ -108,10 +196,13 @@ export async function getInvitationStats() {
     pending,
     totalRewards,
     invitations: invitationsWithProfiles || [],
+    maxInvitations,
+    usedInvitations,
+    remainingInvitations,
   }
 }
 
-// 验证邀请码并处理奖励
+// 验证邀请码并处理奖励（支持内测码和用户邀请码）
 export async function processInvitationReward(invitationCode: string, inviteeId: string) {
   console.log("[服务端] 开始处理邀请奖励:", { invitationCode, inviteeId })
   const supabase = await createClient()
@@ -124,10 +215,41 @@ export async function processInvitationReward(invitationCode: string, inviteeId:
     return null
   }
 
+  // 先验证邀请码类型
+  const validationResult = await validateInvitationCode(invitationCode)
+  console.log("[服务端] 邀请码验证结果:", validationResult)
+
+  if (!validationResult.valid) {
+    console.error("[服务端] 邀请码无效")
+    return null
+  }
+
+  // 如果是内测码，只需要标记为已使用即可
+  if (validationResult.type === 'beta') {
+    console.log("[服务端] 检测到内测码，标记为已使用")
+    const { useBetaCode } = await import("./beta-codes")
+    const result = await useBetaCode(invitationCode, inviteeId)
+
+    if (result.success) {
+      console.log("[服务端] 内测码使用成功")
+      return {
+        success: true,
+        type: 'beta',
+        invitee_id: inviteeId,
+      }
+    } else {
+      console.error("[服务端] 内测码使用失败:", result.error)
+      return null
+    }
+  }
+
+  // 如果是用户邀请码，继续原有的邀请奖励流程
+  console.log("[服务端] 检测到用户邀请码，开始处理邀请奖励")
+
   // 通过邀请码查找邀请人
   const { data: inviterProfile, error: findError } = await supabase
     .from("profiles")
-    .select("id, invitation_code")
+    .select("id, invitation_code, max_invitations, used_invitations")
     .eq("invitation_code", invitationCode)
     .maybeSingle()
 
@@ -141,6 +263,24 @@ export async function processInvitationReward(invitationCode: string, inviteeId:
   // 防止自己邀请自己
   if (inviterProfile.id === inviteeId) {
     console.error("[服务端] 不能使用自己的邀请码")
+    return null
+  }
+
+  // 检查邀请人是否还有剩余邀请次数
+  const settingsResult = await getSystemSettings()
+  const systemMaxInvitations = settingsResult.data?.max_invitations_per_user || 5
+  const maxInvitations = inviterProfile.max_invitations || systemMaxInvitations
+  const usedInvitations = inviterProfile.used_invitations || 0
+  const remainingInvitations = Math.max(maxInvitations - usedInvitations, 0)
+
+  console.log("[服务端] 邀请人邀请次数信息:", {
+    maxInvitations,
+    usedInvitations,
+    remainingInvitations
+  })
+
+  if (remainingInvitations <= 0) {
+    console.error("[服务端] 邀请人的邀请次数已用完")
     return null
   }
 
@@ -282,16 +422,48 @@ export async function processInvitationReward(invitationCode: string, inviteeId:
   }
 }
 
-// 验证邀请码是否有效
-export async function validateInvitationCode(invitationCode: string) {
+// 验证邀请码是否有效（支持内测码和用户邀请码）
+export async function validateInvitationCode(invitationCode: string): Promise<{
+  valid: boolean
+  type?: 'beta' | 'user'  // beta=内测码, user=用户邀请码
+  betaCodeId?: string
+}> {
   const supabase = await createClient()
 
-  // 从 profiles 表中查询邀请码
+  // 1. 先检查是否是有效的内测码
+  const { validateBetaCode } = await import("./beta-codes")
+  const betaCodeResult = await validateBetaCode(invitationCode)
+
+  if (betaCodeResult.success && betaCodeResult.valid) {
+    return {
+      valid: true,
+      type: 'beta',
+      betaCodeId: betaCodeResult.betaCodeId
+    }
+  }
+
+  // 2. 如果不是内测码，检查是否是用户邀请码
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id")
+    .select("id, max_invitations, used_invitations")
     .eq("invitation_code", invitationCode)
     .maybeSingle()
 
-  return !!profile
+  if (profile) {
+    // 检查邀请人是否还有剩余邀请次数
+    const settingsResult = await getSystemSettings()
+    const systemMaxInvitations = settingsResult.data?.max_invitations_per_user || 5
+    const maxInvitations = profile.max_invitations || systemMaxInvitations
+    const usedInvitations = profile.used_invitations || 0
+    const remainingInvitations = Math.max(maxInvitations - usedInvitations, 0)
+
+    if (remainingInvitations > 0) {
+      return {
+        valid: true,
+        type: 'user'
+      }
+    }
+  }
+
+  return { valid: false }
 }

@@ -17,6 +17,8 @@ export interface UserProfile {
   points: number
   report_count: number
   merchant_count: number
+  max_invitations?: number
+  used_invitations?: number
   created_at: string
   updated_at: string
 }
@@ -78,6 +80,8 @@ export async function adminGetUsers(params: GetUsersParams = {}) {
         banned_by,
         points,
         report_count,
+        max_invitations,
+        used_invitations,
         created_at,
         updated_at
       `)
@@ -1054,6 +1058,59 @@ export async function revokeAdmin(userId: string, reason?: string) {
     return { success: true }
   } catch (error: any) {
     console.error("Error in revokeAdmin:", error)
+    return { success: false, error: error.message }
+  }
+}
+
+/**
+ * 更新用户的邀请次数限制（仅限管理员）
+ */
+export async function updateUserInvitationLimit(userId: string, maxInvitations: number) {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { success: false, error: "未登录" }
+  }
+
+  // 验证管理员权限
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single()
+
+  if (!profile || profile.role !== "admin") {
+    return { success: false, error: "无权限操作" }
+  }
+
+  try {
+    // 验证 maxInvitations 是否有效
+    if (maxInvitations < 0) {
+      return { success: false, error: "邀请次数不能为负数" }
+    }
+
+    // 更新用户的邀请次数限制
+    const { error: updateError } = await supabase
+      .from("profiles")
+      .update({
+        max_invitations: maxInvitations,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", userId)
+
+    if (updateError) {
+      console.error("Error updating invitation limit:", updateError)
+      return { success: false, error: updateError.message }
+    }
+
+    revalidatePath("/admin/users")
+    return { success: true }
+  } catch (error: any) {
+    console.error("Error in updateUserInvitationLimit:", error)
     return { success: false, error: error.message }
   }
 }

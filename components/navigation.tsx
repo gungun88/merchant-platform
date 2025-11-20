@@ -10,11 +10,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Bell, Calendar, User, Settings, LogOut, ChevronDown, Star, Store, Users, MessageCircle, History, Shield } from "lucide-react"
+import { Bell, Calendar, User, Settings, LogOut, ChevronDown, Star, Store, Users, MessageCircle, History, Shield, CheckCheck } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { checkIn, getCheckInStatus } from "@/lib/actions/points"
 import { getUserMerchant } from "@/lib/actions/merchant"
-import { getUnreadCount, getNotifications, markNotificationAsRead } from "@/lib/actions/notifications"
+import { getUnreadCount, getNotifications, markNotificationAsRead, markAllNotificationsAsRead } from "@/lib/actions/notifications"
 import { getSystemSettings } from "@/lib/actions/settings"
 import { triggerPointsUpdate } from "@/lib/utils/points-update"
 import Link from "next/link"
@@ -272,6 +272,19 @@ export function Navigation() {
     })
   }
 
+  const handleMarkAllAsRead = async () => {
+    const result = await markAllNotificationsAsRead()
+    if (result.success) {
+      // 更新未读数量
+      setUnreadCount(0)
+      // 更新本地通知列表，将所有通知标记为已读
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
+      toast.success("已将所有通知标记为已读")
+    } else {
+      toast.error(result.error || "操作失败")
+    }
+  }
+
   const handleLogout = async () => {
     const supabase = createClient()
     await supabase.auth.signOut()
@@ -386,8 +399,22 @@ export function Navigation() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-[calc(100vw-2rem)] max-w-96 p-0">
                     {/* 标题栏 */}
-                    <div className="border-b px-4 py-3">
+                    <div className="border-b px-4 py-3 flex items-center justify-between">
                       <h3 className="font-semibold">通知中心</h3>
+                      {unreadCount > 0 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 gap-1.5"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleMarkAllAsRead()
+                          }}
+                        >
+                          <CheckCheck className="h-4 w-4" />
+                          全部已读
+                        </Button>
+                      )}
                     </div>
 
                     {/* 通知列表 */}

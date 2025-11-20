@@ -64,6 +64,13 @@ export interface SystemSettings {
   email_allowed_domains: string[]
   email_blocked_domains: string[]
 
+  // 邀请码配置
+  invitation_code_required: boolean
+
+  // 邀请系统配置
+  max_invitations_per_user: number
+  invitation_monthly_reset: boolean
+
   // 时间戳
   created_at: string
   updated_at: string
@@ -124,6 +131,13 @@ export interface UpdateSettingsData {
   email_validation_mode?: 'whitelist' | 'blacklist' | 'both' | 'disabled'
   email_allowed_domains?: string[]
   email_blocked_domains?: string[]
+
+  // 邀请码配置
+  invitation_code_required?: boolean
+
+  // 邀请系统配置
+  max_invitations_per_user?: number
+  invitation_monthly_reset?: boolean
 }
 
 /**

@@ -14,6 +14,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect } from "react"
 import { validateInvitationCode, processInvitationReward } from "@/lib/actions/invitation"
 import { validateEmailAction } from "@/lib/actions/email-validation"
+import { getSystemSettings } from "@/lib/actions/settings"
 import { toast } from "sonner"
 
 export default function RegisterPage() {
@@ -24,11 +25,17 @@ export default function RegisterPage() {
   const [invitationCode, setInvitationCode] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [invitationValid, setInvitationValid] = useState<boolean | null>(null)
+  const [invitationValid, setInvitationValid] = useState<{
+    valid: boolean
+    type?: 'beta' | 'user'
+  } | null>(null)
   const [passwordStrength, setPasswordStrength] = useState<{
     score: number
     feedback: string[]
   }>({ score: 0, feedback: [] })
+  const [invitationCodeRequired, setInvitationCodeRequired] = useState(false)
+  const [emailExists, setEmailExists] = useState(false)
+  const [checkingEmail, setCheckingEmail] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -80,6 +87,44 @@ export default function RegisterPage() {
     }
   }, [password])
 
+  // 加载系统设置
+  useEffect(() => {
+    async function loadSettings() {
+      const result = await getSystemSettings()
+      if (result.success && result.data) {
+        setInvitationCodeRequired(result.data.invitation_code_required ?? false)
+      }
+    }
+    loadSettings()
+  }, [])
+
+  // 实时检查邮箱是否已被注册
+  useEffect(() => {
+    const checkEmail = async () => {
+      if (!email || email.length < 3) {
+        setEmailExists(false)
+        return
+      }
+
+      setCheckingEmail(true)
+      const supabase = createClient()
+      const { data: existingUsers } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('email', email.toLowerCase())
+        .limit(1)
+
+      setEmailExists(existingUsers && existingUsers.length > 0)
+      setCheckingEmail(false)
+    }
+
+    const timer = setTimeout(() => {
+      checkEmail()
+    }, 500) // 延迟500ms，避免频繁查询
+
+    return () => clearTimeout(timer)
+  }, [email])
+
   // 检查URL中的邀请码
   useEffect(() => {
     const code = searchParams.get("invitation_code")
@@ -109,7 +154,38 @@ export default function RegisterPage() {
     setIsLoading(true)
     setError(null)
 
-    // 1. 验证邮箱格式和域名（使用数据库配置）
+    // 1. 检查邮箱是否已被注册
+    const { data: existingUsers, error: checkError } = await supabase
+      .from('profiles')
+      .select('email')
+      .eq('email', email.toLowerCase())
+      .limit(1)
+
+    if (checkError) {
+      console.error('检查邮箱时出错:', checkError)
+    }
+
+    if (existingUsers && existingUsers.length > 0) {
+      setError("该邮箱已被注册，请使用其他邮箱或直接登录")
+      setIsLoading(false)
+      return
+    }
+
+    // 2. 验证邀请码（如果必填）
+    if (invitationCodeRequired && !invitationCode) {
+      setError("邀请码为必填项，请输入邀请码")
+      setIsLoading(false)
+      return
+    }
+
+    // 3. 如果填写了邀请码，验证其有效性
+    if (invitationCode && invitationValid?.valid === false) {
+      setError("邀请码无效或已使用，请检查后重试")
+      setIsLoading(false)
+      return
+    }
+
+    // 4. 验证邮箱格式和域名（使用数据库配置）
     const emailValidation = await validateEmailAction(email)
     if (!emailValidation.valid) {
       setError(emailValidation.reason || '邮箱验证失败')
@@ -117,14 +193,14 @@ export default function RegisterPage() {
       return
     }
 
-    // 2. 验证密码强度
+    // 5. 验证密码强度
     if (passwordStrength.score < 5) {
       setError(`密码强度不足: ${passwordStrength.feedback.join('、')}`)
       setIsLoading(false)
       return
     }
 
-    // 3. 验证密码一致性
+    // 6. 验证密码一致性
     if (password !== confirmPassword) {
       setError("两次输入的密码不一致")
       setIsLoading(false)
@@ -149,17 +225,22 @@ export default function RegisterPage() {
       console.log("注册成功，检查邀请码:", {
         hasUser: !!data.user,
         invitationCode,
-        invitationValid,
+        invitationValid: invitationValid?.valid,
+        invitationType: invitationValid?.type,
       })
 
-      if (data.user && invitationCode && invitationValid) {
+      if (data.user && invitationCode && invitationValid?.valid) {
         try {
           console.log("开始处理邀请奖励...")
           const result = await processInvitationReward(invitationCode, data.user.id)
           console.log("邀请奖励处理结果:", result)
 
           if (result) {
-            console.log("邀请奖励处理成功,双方各获得积分")
+            if (result.type === 'beta') {
+              console.log("内测码使用成功")
+            } else {
+              console.log("邀请奖励处理成功,双方各获得积分")
+            }
           } else {
             console.log("邀请奖励处理返回null，可能被邀请过或邀请码无效")
           }
@@ -171,7 +252,7 @@ export default function RegisterPage() {
         console.log("跳过邀请奖励处理，条件不满足:", {
           hasUser: !!data.user,
           hasCode: !!invitationCode,
-          isValid: invitationValid,
+          isValid: invitationValid?.valid,
         })
       }
 
@@ -193,7 +274,7 @@ export default function RegisterPage() {
             <CardTitle className="text-2xl">注册</CardTitle>
             <CardDescription>
               创建新账号，注册即送积分
-              {invitationCode && invitationValid && "，使用邀请码额外获得积分"}
+              {invitationCode && invitationValid?.valid && invitationValid.type !== 'beta' && "，使用邀请码额外获得积分"}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -207,11 +288,15 @@ export default function RegisterPage() {
                   </AlertDescription>
                 </Alert>
 
-                {invitationCode && invitationValid && (
+                {invitationCode && invitationValid?.valid && (
                   <Alert className="bg-green-50 border-green-200">
                     <Gift className="h-4 w-4 text-green-600" />
                     <AlertDescription className="text-green-700">
-                      您正在使用邀请码注册，完成后您和邀请人都将获得 <strong>积分</strong> 奖励
+                      {invitationValid.type === 'beta' ? (
+                        <>您正在使用 <strong>内测邀请码</strong> 注册</>
+                      ) : (
+                        <>您正在使用邀请码注册，完成后您和邀请人都将获得 <strong>积分</strong> 奖励</>
+                      )}
                     </AlertDescription>
                   </Alert>
                 )}
@@ -235,7 +320,22 @@ export default function RegisterPage() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    className={emailExists ? 'border-red-500 focus-visible:ring-red-500' : ''}
                   />
+                  {checkingEmail && email && (
+                    <p className="text-xs text-muted-foreground">检查邮箱...</p>
+                  )}
+                  {!checkingEmail && emailExists && (
+                    <p className="text-sm text-red-500 flex items-center gap-1">
+                      该邮箱已被注册，请
+                      <Link href="/auth/login" className="underline font-medium">
+                        直接登录
+                      </Link>
+                    </p>
+                  )}
+                  {!checkingEmail && email && !emailExists && email.includes('@') && (
+                    <p className="text-sm text-green-600">该邮箱可以使用</p>
+                  )}
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="password">密码</Label>
@@ -310,20 +410,39 @@ export default function RegisterPage() {
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="invitation-code">邀请码（选填）</Label>
+                  <Label htmlFor="invitation-code">
+                    邀请码{invitationCodeRequired && <span className="text-red-500 ml-1">*</span>}
+                    {!invitationCodeRequired && <span className="text-muted-foreground text-xs ml-1">(选填)</span>}
+                  </Label>
                   <Input
                     id="invitation-code"
                     type="text"
-                    placeholder="如果有邀请码请输入"
+                    placeholder={invitationCodeRequired ? "请输入邀请码（必填）" : "如果有邀请码请输入"}
                     value={invitationCode}
                     onChange={(e) => setInvitationCode(e.target.value.toUpperCase())}
+                    required={invitationCodeRequired}
                   />
-                  {invitationCode && invitationValid === false && (
+                  {invitationCode && invitationValid?.valid === false && (
                     <p className="text-sm text-red-500">邀请码无效或已使用</p>
                   )}
-                  {invitationCode && invitationValid === true && (
-                    <p className="text-sm text-green-600">邀请码有效</p>
+                  {invitationCode && invitationValid?.valid === true && (
+                    <p className="text-sm text-green-600">
+                      邀请码有效 {invitationValid.type === 'beta' && '(内测码)'}
+                    </p>
                   )}
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+                    <p className="text-sm text-yellow-800 text-center">
+                      没有邀请码？
+                      <a
+                        href="https://doingfb.com/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-yellow-900 underline font-medium ml-1 hover:text-yellow-700"
+                      >
+                        点击这里获取
+                      </a>
+                    </p>
+                  </div>
                 </div>
                 {error && <p className="text-sm text-red-500">{error}</p>}
                 <Button type="submit" className="w-full" disabled={isLoading}>

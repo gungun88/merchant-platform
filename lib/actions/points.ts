@@ -325,7 +325,7 @@ export async function checkIn(userId: string) {
     const { data: dbTimeData } = await supabase.rpc("now")
     const dbTime = dbTimeData || new Date().toISOString()
 
-    // 先记录积分变动(在更新积分之前记录,以便正确计算balance_after)
+    // 记录积分变动（函数内部会自动更新用户积分）
     await recordPointTransaction(
       userId,
       points,
@@ -336,13 +336,12 @@ export async function checkIn(userId: string) {
       { consecutive_days: newConsecutiveDays }
     )
 
-    // 然后更新profile
+    // 只更新签到相关字段，不再重复更新积分
     const { error: updateError } = await supabase
       .from("profiles")
       .update({
         last_checkin: dbTime, // 使用数据库时间
         consecutive_checkin_days: newConsecutiveDays,
-        points: status.currentPoints + points,
       })
       .eq("id", userId)
 

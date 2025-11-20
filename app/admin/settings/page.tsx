@@ -26,7 +26,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Settings, Save, RotateCcw, Upload, X, Image as ImageIcon, Mail, ShieldCheck, AlertTriangle } from "lucide-react"
+import { Settings, Save, RotateCcw, Upload, X, Image as ImageIcon, Mail, ShieldCheck, AlertTriangle, Users } from "lucide-react"
 import { toast } from "sonner"
 import { SensitiveWordsManager } from "@/components/admin/sensitive-words-manager"
 import {
@@ -826,6 +826,71 @@ export default function SystemSettingsPage() {
                       />
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">当用户积分低于此值时发送预警通知（0-1000）</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+
+          {/* 邀请系统配置 */}
+          <div>
+            <h3 className="text-sm font-semibold mb-3 px-1 flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              邀请系统配置
+            </h3>
+            <div className="border rounded-lg overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[200px]">配置项</TableHead>
+                    <TableHead>配置值</TableHead>
+                    <TableHead className="w-[300px]">说明</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRow>
+                    <TableCell className="font-medium">每人最大邀请次数</TableCell>
+                    <TableCell>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="999"
+                        value={formData.max_invitations_per_user || 5}
+                        onChange={(e) => setFormData({ ...formData, max_invitations_per_user: Number(e.target.value) })}
+                        className="w-32"
+                      />
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      每个用户最多可以邀请的好友数量（0-999）
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium">邀请码必填</TableCell>
+                    <TableCell>
+                      <Switch
+                        checked={formData.invitation_code_required ?? false}
+                        onCheckedChange={(checked) =>
+                          setFormData({ ...formData, invitation_code_required: checked })
+                        }
+                      />
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      开启后用户注册时必须填写邀请码
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium">启用按月重置</TableCell>
+                    <TableCell>
+                      <Switch
+                        checked={formData.invitation_monthly_reset ?? true}
+                        onCheckedChange={(checked) =>
+                          setFormData({ ...formData, invitation_monthly_reset: checked })
+                        }
+                      />
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      开启后每个自然月会自动重置用户的邀请次数，让用户可以继续邀请好友
+                    </TableCell>
                   </TableRow>
                 </TableBody>
               </Table>

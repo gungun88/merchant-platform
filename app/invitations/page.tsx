@@ -104,8 +104,34 @@ export default function InvitationsPage() {
 
         <div className="space-y-6">
 
+          {/* 邀请次数限制提示 */}
+          {stats && (
+            <Alert className={stats.remainingInvitations > 0 ? "bg-blue-50 border-blue-200" : "bg-orange-50 border-orange-200"}>
+              <Gift className={`h-4 w-4 ${stats.remainingInvitations > 0 ? "text-blue-600" : "text-orange-600"}`} />
+              <AlertDescription className={stats.remainingInvitations > 0 ? "text-blue-700" : "text-orange-700"}>
+                {stats.remainingInvitations > 0 ? (
+                  <>您当前还可以邀请 <strong className="text-lg">{stats.remainingInvitations}</strong> 位好友（已使用 {stats.usedInvitations}/{stats.maxInvitations}）</>
+                ) : (
+                  <>您的邀请次数已用完（{stats.usedInvitations}/{stats.maxInvitations}），如需更多邀请机会请联系管理员</>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* 统计卡片 */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-4">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex flex-col gap-2 text-center md:text-left">
+                  <p className="text-xs md:text-sm text-muted-foreground">剩余次数</p>
+                  <div className="flex items-center justify-center md:justify-start gap-2">
+                    <p className="text-xl md:text-2xl font-bold">{stats?.remainingInvitations || 0}</p>
+                    <Gift className="h-6 w-6 md:h-8 md:w-8 text-orange-500" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardContent className="pt-6">
                 <div className="flex flex-col gap-2 text-center md:text-left">

@@ -48,6 +48,7 @@ import {
   ShieldCheck,
   KeyRound,
   DollarSign,
+  Ticket,
 } from "lucide-react"
 
 interface AdminLayoutProps {
@@ -98,6 +99,11 @@ const menuItems = [
       { title: "用户列表", href: "/admin/users", icon: Users },
       { title: "管理员管理", href: "/admin/admins", icon: ShieldCheck },
     ],
+  },
+  {
+    title: "内测管理",
+    href: "/admin/beta-codes",
+    icon: Ticket,
   },
   {
     title: "公告管理",

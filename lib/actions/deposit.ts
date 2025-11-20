@@ -447,26 +447,7 @@ export async function claimDailyLoginReward() {
     const rewardPoints = settingsResult.data?.deposit_merchant_daily_reward || 50
 
     // 先更新用户积分
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("points")
-      .eq("id", user.id)
-      .single()
-
-    if (profileError || !profile) {
-      throw new Error("获取用户积分失败")
-    }
-
-    const newPoints = profile.points + rewardPoints
-
-    const { error: updatePointsError } = await supabase
-      .from("profiles")
-      .update({ points: newPoints })
-      .eq("id", user.id)
-
-    if (updatePointsError) throw updatePointsError
-
-    // 记录积分交易（此时profiles已经更新，函数会读取新积分作为balance_after）
+    // 记录积分交易（函数内部会自动更新用户积分）
     const { error: pointsError } = await supabase.rpc("record_point_transaction", {
       p_user_id: user.id,
       p_amount: rewardPoints,
@@ -635,27 +616,7 @@ export async function claimDepositBonus() {
     const settingsResult = await getSystemSettings()
     const bonusPoints = settingsResult.data?.deposit_merchant_apply_reward || 1000
 
-    // 先更新用户积分
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("points")
-      .eq("id", user.id)
-      .single()
-
-    if (profileError || !profile) {
-      throw new Error("获取用户积分失败")
-    }
-
-    const newPoints = profile.points + bonusPoints
-
-    const { error: updatePointsError } = await supabase
-      .from("profiles")
-      .update({ points: newPoints })
-      .eq("id", user.id)
-
-    if (updatePointsError) throw updatePointsError
-
-    // 记录积分交易
+    // 记录积分交易（函数内部会自动更新用户积分）
     const { error: pointsError } = await supabase.rpc("record_point_transaction", {
       p_user_id: user.id,
       p_amount: bonusPoints,
