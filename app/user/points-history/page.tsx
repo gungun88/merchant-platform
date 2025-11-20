@@ -60,15 +60,17 @@ export default function PointsHistoryPage() {
   const [total, setTotal] = useState(0)
 
   // 加载统计信息
-  useEffect(() => {
-    async function loadStats() {
-      setStatsLoading(true)
-      const result = await getPointsStatistics()
-      if (result.success) {
-        setStatistics(result.data)
-      }
-      setStatsLoading(false)
+  async function loadStats() {
+    setStatsLoading(true)
+    const result = await getPointsStatistics()
+    if (result.success) {
+      setStatistics(result.data)
     }
+    setStatsLoading(false)
+  }
+
+  // 初始加载统计信息
+  useEffect(() => {
     loadStats()
   }, [])
 
@@ -113,6 +115,9 @@ export default function PointsHistoryPage() {
       }
 
       setLoading(false)
+
+      // 每次加载交易记录后，也刷新统计信息
+      loadStats()
     }
 
     loadTransactions()

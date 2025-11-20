@@ -31,30 +31,19 @@ SECURITY DEFINER
 AS $$
 DECLARE
   v_current_points INTEGER;
-  v_new_points INTEGER;
   v_transaction_id UUID;
 BEGIN
   -- 获取当前积分
   SELECT points INTO v_current_points
-  FROM profiles
-  WHERE id = p_user_id
-  FOR UPDATE;
-
-  IF v_current_points IS NULL THEN
-    RAISE EXCEPTION '用户不存在: %', p_user_id;
-  END IF;
-
-  -- 计算新积分
-  v_new_points := v_current_points + p_amount;
-
-  -- 更新用户积分
-  UPDATE profiles
-  SET points = v_new_points,
-      updated_at = NOW()
+  FROM public.profiles
   WHERE id = p_user_id;
 
-  -- 记录交易
-  INSERT INTO point_transactions (
+  IF v_current_points IS NULL THEN
+    RAISE EXCEPTION 'User profile not found';
+  END IF;
+
+  -- 插入交易记录 (不更新积分,积分由外部代码更新)
+  INSERT INTO public.point_transactions (
     user_id,
     amount,
     balance_after,
@@ -63,11 +52,10 @@ BEGIN
     related_user_id,
     related_merchant_id,
     metadata
-  )
-  VALUES (
+  ) VALUES (
     p_user_id,
     p_amount,
-    v_new_points,
+    v_current_points + p_amount, -- 计算交易后余额
     p_type,
     p_description,
     p_related_user_id,

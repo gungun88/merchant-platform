@@ -325,7 +325,18 @@ export async function checkIn(userId: string) {
     const { data: dbTimeData } = await supabase.rpc("now")
     const dbTime = dbTimeData || new Date().toISOString()
 
-    // 更新profile
+    // 先记录积分变动(在更新积分之前记录,以便正确计算balance_after)
+    await recordPointTransaction(
+      userId,
+      points,
+      "checkin",
+      `每日签到奖励 +${points}积分${bonusDesc}`,
+      null,
+      null,
+      { consecutive_days: newConsecutiveDays }
+    )
+
+    // 然后更新profile
     const { error: updateError } = await supabase
       .from("profiles")
       .update({
@@ -338,17 +349,6 @@ export async function checkIn(userId: string) {
     if (updateError) {
       throw updateError
     }
-
-    // 记录积分变动
-    await recordPointTransaction(
-      userId,
-      points,
-      "checkin",
-      `每日签到奖励 +${points}积分${bonusDesc}`,
-      null,
-      null,
-      { consecutive_days: newConsecutiveDays }
-    )
 
     // 发送签到通知
     await createNotification({

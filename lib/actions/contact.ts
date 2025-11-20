@@ -85,8 +85,7 @@ export async function viewContact(merchantId: string) {
   }
 
   // 扣除查看者积分
-  await updateUserPoints(user.id, -pointsToDeduct)
-
+  // 先记录交易（读取旧余额），再更新积分
   const viewerDesc = isViewerMerchant
     ? `查看商家【${merchant.name}】联系方式 -${pointsToDeduct}积分`
     : `查看商家【${merchant.name}】联系方式 -${pointsToDeduct}积分`
@@ -100,9 +99,11 @@ export async function viewContact(merchantId: string) {
     merchantId
   )
 
+  await updateUserPoints(user.id, -pointsToDeduct)
+
   // 如果是注册用户查看商家，商家也扣除积分
   if (!isViewerMerchant) {
-    await updateUserPoints(merchantProfile.id, -merchantDeduct)
+    // 先记录交易（读取旧余额），再更新积分
     await addPointsLog(
       merchantProfile.id,
       -merchantDeduct,
@@ -111,6 +112,8 @@ export async function viewContact(merchantId: string) {
       user.id,
       merchantId
     )
+
+    await updateUserPoints(merchantProfile.id, -merchantDeduct)
 
     // 发送通知给商家：有用户查看了联系方式
     await createNotification({
