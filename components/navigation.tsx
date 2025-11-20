@@ -27,6 +27,7 @@ export function Navigation() {
   const [profile, setProfile] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [hasCheckedIn, setHasCheckedIn] = useState(false)
+  const [loadingCheckInStatus, setLoadingCheckInStatus] = useState(true)
   const [consecutiveDays, setConsecutiveDays] = useState(0)
   const [earnedPoints, setEarnedPoints] = useState(0)
   const [hasMerchant, setHasMerchant] = useState(false)
@@ -72,9 +73,11 @@ export function Navigation() {
         setHasMerchant(!!merchant)
 
         // 获取签到状态
+        setLoadingCheckInStatus(true)
         const status = await getCheckInStatus(user.id)
         setHasCheckedIn(status.hasCheckedInToday)
         setConsecutiveDays(status.consecutiveDays)
+        setLoadingCheckInStatus(false)
 
         // 获取未读通知数量
         const unreadResult = await getUnreadCount()
@@ -321,7 +324,7 @@ export function Navigation() {
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon" className="relative">
                       <Calendar className="h-5 w-5" />
-                      {!hasCheckedIn && (
+                      {!loadingCheckInStatus && !hasCheckedIn && (
                         <span className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
                           1
                         </span>
