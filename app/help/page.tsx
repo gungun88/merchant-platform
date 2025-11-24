@@ -270,7 +270,7 @@ export default function HelpPage() {
               或
               <button
                 onClick={() => setContactDialogOpen(true)}
-                className="text-blue-600 underline mx-1 hover:text-blue-700"
+                className="text-blue-600 underline mx-1 hover:text-blue-700 cursor-pointer"
               >
                 联系客服
               </button>

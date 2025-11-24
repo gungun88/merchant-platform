@@ -166,7 +166,7 @@ export function HomeBanners() {
                   {banners.left.map((_, index) => (
                     <button
                       key={index}
-                      className={`h-2 rounded-full transition-all ${
+                      className={`h-2 rounded-full transition-all cursor-pointer ${
                         index === leftCurrentIndex
                           ? "w-6 bg-white"
                           : "w-2 bg-white/50"
@@ -236,7 +236,7 @@ export function HomeBanners() {
                   {banners.right.map((_, index) => (
                     <button
                       key={index}
-                      className={`h-2 rounded-full transition-all ${
+                      className={`h-2 rounded-full transition-all cursor-pointer ${
                         index === rightCurrentIndex
                           ? "w-6 bg-white"
                           : "w-2 bg-white/50"

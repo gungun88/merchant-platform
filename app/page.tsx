@@ -278,9 +278,25 @@ export default function MerchantCenter() {
     setContactDialogOpen(true)
   }
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
+    // 重置所有筛选条件
     setFilters({ service_type: "all", location: "all", price_range: "all", merchant_type: "all", search: "" })
     setCurrentPage(1)
+
+    // 立即重新加载商家数据
+    setLoading(true)
+    const result = await getMerchants({
+      service_type: "all",
+      location: "all",
+      price_range: "all",
+      merchant_type: "all",
+      search: "",
+      page: 1,
+      pageSize: pageSize,
+    })
+    setMerchants(result.merchants)
+    setTotalMerchants(result.total)
+    setLoading(false)
   }
 
   // 格式化价格显示：如果没有货币符号，自动添加$
@@ -844,7 +860,12 @@ export default function MerchantCenter() {
                               </div>
                               <div className="flex flex-col">
                                 <div className="flex items-center gap-2">
-                                  <span className="font-medium text-sm">{merchant.name}</span>
+                                  <span
+                                    className="font-medium text-sm cursor-pointer hover:text-blue-600 transition-colors"
+                                    onClick={() => window.open(`/merchant/${merchant.id}`, '_blank')}
+                                  >
+                                    {merchant.name}
+                                  </span>
                                   {merchantNotes[merchant.id] && (
                                     <Tooltip>
                                       <TooltipTrigger asChild>
@@ -903,7 +924,10 @@ export default function MerchantCenter() {
                         <TableCell>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <p className="text-sm text-muted-foreground truncate max-w-[220px]">
+                              <p
+                                className="text-sm text-muted-foreground truncate max-w-[220px] cursor-pointer hover:text-blue-600 transition-colors"
+                                onClick={() => window.open(`/merchant/${merchant.id}`, '_blank')}
+                              >
                                 {merchant.description}
                               </p>
                             </TooltipTrigger>
@@ -1157,7 +1181,12 @@ export default function MerchantCenter() {
                         <div className="flex items-start justify-between gap-1.5">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5 mb-1">
-                              <h3 className="font-semibold text-sm truncate">{merchant.name}</h3>
+                              <h3
+                                className="font-semibold text-sm truncate cursor-pointer hover:text-blue-600 transition-colors"
+                                onClick={() => window.open(`/merchant/${merchant.id}`, '_blank')}
+                              >
+                                {merchant.name}
+                              </h3>
                               {merchantNotes[merchant.id] && (
                                 <StickyNote className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />
                               )}
@@ -1261,7 +1290,10 @@ export default function MerchantCenter() {
                     </div>
 
                     {/* 描述 */}
-                    <p className="text-xs text-muted-foreground mb-2 line-clamp-2 leading-relaxed">
+                    <p
+                      className="text-xs text-muted-foreground mb-2 line-clamp-2 leading-relaxed cursor-pointer hover:text-blue-600 transition-colors"
+                      onClick={() => window.open(`/merchant/${merchant.id}`, '_blank')}
+                    >
                       {merchant.description}
                     </p>
 
