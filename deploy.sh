@@ -118,9 +118,9 @@ echo ""
 # 4. 安装依赖
 print_info "检查并安装新依赖..."
 if [ -f "package-lock.json" ]; then
-    npm ci --production=false
+    npm ci --legacy-peer-deps
 else
-    npm install --production=false
+    npm install --legacy-peer-deps
 fi
 print_success "依赖安装完成"
 echo ""

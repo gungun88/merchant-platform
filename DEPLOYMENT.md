@@ -54,7 +54,7 @@
 
 在宝塔面板中：
 1. 点击 "网站" → "添加站点"
-2. 域名填写: `merchant.doingfb.com`
+2. 域名填写: ` `
 3. 根目录: `/www/wwwroot/merchant.doingfb.com`
 4. PHP 版本: 选择 "纯静态"
 5. 数据库: 不创建 (使用 Supabase)
@@ -126,10 +126,10 @@ NODE_ENV=production
 ```bash
 cd /www/wwwroot/merchant.doingfb.com
 
-# 使用 npm 安装
-npm install --production=false
+# 使用 npm 安装（需要 --legacy-peer-deps 处理 React 19 兼容性）
+npm install --legacy-peer-deps
 
-# 或使用 pnpm (更快)
+# 或使用 pnpm (更快，自动处理对等依赖)
 npm install -g pnpm
 pnpm install
 ```
