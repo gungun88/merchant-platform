@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { Navigation } from "@/components/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -362,7 +361,7 @@ export default function PartnersPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navigation />
+      
 
       <div className="container mx-auto px-0 py-8 max-w-6xl">
         {/* 返回按钮 */}

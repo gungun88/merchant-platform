@@ -49,6 +49,8 @@ import {
   KeyRound,
   DollarSign,
   Ticket,
+  Image,
+  UsersRound,
 } from "lucide-react"
 
 interface AdminLayoutProps {
@@ -97,6 +99,7 @@ const menuItems = [
     icon: Users,
     subItems: [
       { title: "用户列表", href: "/admin/users", icon: Users },
+      { title: "用户组管理", href: "/admin/user-groups", icon: UsersRound },
       { title: "管理员管理", href: "/admin/admins", icon: ShieldCheck },
     ],
   },
@@ -109,6 +112,11 @@ const menuItems = [
     title: "公告管理",
     href: "/admin/announcements",
     icon: Megaphone,
+  },
+  {
+    title: "广告图管理",
+    href: "/admin/banners",
+    icon: Image,
   },
   {
     title: "操作日志",

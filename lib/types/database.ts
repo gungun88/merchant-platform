@@ -47,3 +47,58 @@ export interface Merchant {
   created_at: string
   updated_at: string
 }
+
+export type BannerPosition = 'left' | 'middle' | 'right'
+
+export interface Banner {
+  id: string
+  position: BannerPosition
+  image_url: string
+  link_url: string | null
+  sort_order: number
+  is_active: boolean
+  expires_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type RewardType = 'daily' | 'weekly' | 'monthly' | 'custom'
+
+export interface UserGroup {
+  id: string
+  name: string
+  description: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface UserGroupMember {
+  id: string
+  group_id: string
+  user_id: string
+  added_at: string
+  added_by: string | null
+}
+
+export interface GroupRewardRule {
+  id: string
+  group_id: string
+  coins_amount: number
+  reward_type: RewardType
+  custom_day_of_month: number | null
+  custom_day_of_week: number | null
+  next_reward_date: string
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface GroupRewardLog {
+  id: string
+  group_id: string
+  user_id: string
+  coins_amount: number
+  reward_date: string
+  executed_at: string
+  transaction_id: string | null
+}

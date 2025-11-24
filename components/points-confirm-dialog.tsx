@@ -42,7 +42,7 @@ export function PointsConfirmDialog({
             {title}
           </AlertDialogTitle>
           <AlertDialogDescription className="space-y-3">
-            {description && <p>{description}</p>}
+            {description && <div>{description}</div>}
 
             <div className="bg-muted p-4 rounded-lg space-y-2">
               <div className="flex items-center justify-between">
@@ -73,9 +73,9 @@ export function PointsConfirmDialog({
               </div>
             )}
 
-            <p className="text-sm text-muted-foreground">
+            <div className="text-sm text-muted-foreground">
               {hasEnoughPoints ? '确认后将立即扣除积分，是否继续？' : '请先通过签到或其他方式获取积分。'}
-            </p>
+            </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

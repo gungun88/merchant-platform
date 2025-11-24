@@ -38,6 +38,7 @@ export function Navigation() {
   const [hasMoreNotifications, setHasMoreNotifications] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
   const [systemSettings, setSystemSettings] = useState<any>(null)
+  const [initialLoading, setInitialLoading] = useState(true) // 新增:初始加载状态
   const router = useRouter()
 
   useEffect(() => {
@@ -57,6 +58,7 @@ export function Navigation() {
       }
 
       if (user) {
+        // 只有登录用户才显示初始加载状态
         setIsLoggedIn(true)
         setUser(user)
 
@@ -155,6 +157,12 @@ export function Navigation() {
           .subscribe((status) => {
             console.log('[Realtime] Notifications channel status:', status)
           })
+
+        // 已登录用户加载完成
+        setInitialLoading(false)
+      } else {
+        // 未登录用户立即完成加载
+        setInitialLoading(false)
       }
     }
 
@@ -330,7 +338,14 @@ export function Navigation() {
 
           {/* 右侧：登录状态 */}
           <div className="flex items-center gap-1 md:gap-3">
-            {isLoggedIn ? (
+            {initialLoading ? (
+              // 加载骨架屏
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-full bg-muted animate-pulse"></div>
+                <div className="h-8 w-8 rounded-full bg-muted animate-pulse"></div>
+                <div className="h-10 w-32 rounded-md bg-muted animate-pulse"></div>
+              </div>
+            ) : isLoggedIn ? (
               <>
                 {/* 签到按钮 */}
                 <DropdownMenu>

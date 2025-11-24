@@ -1,7 +1,7 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
-import { addPointsLog, updateUserPoints } from "./points"
+import { addPointsLog } from "./points"
 import { createNotification } from "./notifications"
 import { getSystemSettings } from "./settings"
 
@@ -85,7 +85,7 @@ export async function viewContact(merchantId: string) {
   }
 
   // 扣除查看者积分
-  // 先记录交易（读取旧余额），再更新积分
+  // addPointsLog 内部会调用 recordPointTransaction,自动更新积分和记录交易
   const viewerDesc = isViewerMerchant
     ? `查看商家【${merchant.name}】联系方式 -${pointsToDeduct}积分`
     : `查看商家【${merchant.name}】联系方式 -${pointsToDeduct}积分`
@@ -99,11 +99,9 @@ export async function viewContact(merchantId: string) {
     merchantId
   )
 
-  await updateUserPoints(user.id, -pointsToDeduct)
-
   // 如果是注册用户查看商家，商家也扣除积分
   if (!isViewerMerchant) {
-    // 先记录交易（读取旧余额），再更新积分
+    // addPointsLog 内部会调用 recordPointTransaction,自动更新积分和记录交易
     await addPointsLog(
       merchantProfile.id,
       -merchantDeduct,
@@ -112,8 +110,6 @@ export async function viewContact(merchantId: string) {
       user.id,
       merchantId
     )
-
-    await updateUserPoints(merchantProfile.id, -merchantDeduct)
 
     // 发送通知给商家：有用户查看了联系方式
     await createNotification({

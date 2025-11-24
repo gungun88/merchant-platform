@@ -1,13 +1,10 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { Toaster } from "sonner"
 import "./globals.css"
 import { getSystemSettings } from "@/lib/actions/settings"
-
-const _geist = Geist({ subsets: ["latin"] })
-const _geistMono = Geist_Mono({ subsets: ["latin"] })
+import { ConditionalNavigation } from "@/components/conditional-navigation"
 
 export async function generateMetadata(): Promise<Metadata> {
   // 获取系统设置
@@ -102,7 +99,8 @@ export default function RootLayout({
   return (
     <html lang="zh-CN">
       <body className={`font-sans antialiased`} suppressHydrationWarning>
-        {children}
+        <ConditionalNavigation />
+        <main>{children}</main>
         <Toaster position="top-center" />
         <Analytics />
       </body>

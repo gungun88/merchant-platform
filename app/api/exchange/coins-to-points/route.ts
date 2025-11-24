@@ -224,15 +224,24 @@ export async function POST(request: NextRequest): Promise<NextResponse<ExchangeR
       )
     }
 
-    // 11. 增加用户积分
-    const { data: updatedProfile, error: updateError } = await supabase
-      .from('profiles')
-      .update({ points: profile.points + points_amount })
-      .eq('id', user_id)
-      .select('points')
-      .single()
+    // 11. 使用 recordPointTransaction 函数增加用户积分
+    // 这个函数会自动更新 profiles.points 和创建 point_transactions 记录
+    const { data: transactionId, error: transactionError } = await supabase
+      .rpc('record_point_transaction', {
+        p_user_id: user_id,
+        p_amount: points_amount,
+        p_type: 'coin_exchange',
+        p_description: `硬币兑换积分:${coin_amount} 硬币 → ${points_amount} 积分`,
+        p_related_user_id: null,
+        p_related_merchant_id: null,
+        p_metadata: {
+          exchange_record_id: exchangeRecord.id,
+          coin_amount,
+          exchange_rate: EXCHANGE_RATE
+        }
+      })
 
-    if (updateError || !updatedProfile) {
+    if (transactionError) {
       // 回滚：标记兑换记录为失败
       await supabase
         .from('coin_exchange_records')
@@ -242,7 +251,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ExchangeR
         })
         .eq('id', exchangeRecord.id)
 
-      console.error('Error updating points:', updateError)
+      console.error('Error updating points:', transactionError)
       return NextResponse.json(
         {
           success: false,
@@ -253,15 +262,12 @@ export async function POST(request: NextRequest): Promise<NextResponse<ExchangeR
       )
     }
 
-    // 12. 创建积分记录
-    await supabase.from('point_transactions').insert({
-      user_id,
-      amount: points_amount,
-      type: 'coin_exchange',
-      description: `硬币兑换积分：${coin_amount} 硬币 → ${points_amount} 积分`,
-      balance_after: updatedProfile.points,
-      related_id: exchangeRecord.id
-    })
+    // 12. 获取更新后的用户积分
+    const { data: updatedProfile } = await supabase
+      .from('profiles')
+      .select('points')
+      .eq('id', user_id)
+      .single()
 
     // 13. 标记兑换记录为完成
     await supabase
@@ -281,7 +287,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ExchangeR
           transaction_id: exchangeRecord.id,
           coin_amount,
           points_amount,
-          user_points_balance: updatedProfile.points
+          user_points_balance: updatedProfile?.points || 0
         }
       },
       { status: 200 }

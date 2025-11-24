@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Navigation } from "@/components/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -171,7 +170,7 @@ export default function SettingsPage() {
   if (pageLoading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Navigation />
+        
         <div className="container mx-auto px-4 py-8 max-w-2xl">
           <div className="text-center py-12 text-muted-foreground">加载中...</div>
         </div>
@@ -181,7 +180,7 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navigation />
+      
 
       <div className="container mx-auto px-4 py-8 max-w-2xl">
         <Link href="/">

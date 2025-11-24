@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { Navigation } from "@/components/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Badge } from "@/components/ui/badge"
@@ -174,7 +173,7 @@ export default function HelpPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navigation />
+      
 
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         {/* 返回按钮和页面标题 */}

@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
-import { addPointsLog, updateUserPoints } from "./points"
+import { addPointsLog } from "./points"
 import { createNotification } from "./notifications"
 import { getSystemSettings } from "./settings"
 import { sanitizeText, sanitizeRichHTML, sanitizeSearchTerm } from "@/lib/utils/sanitize"
@@ -110,9 +110,8 @@ export async function createMerchant(formData: {
   const merchantRegisterPoints = settingsResult.data?.merchant_register_points || 50
 
   // 赠送新商家入驻积分
-  // 先记录交易（读取旧余额），再更新积分
+  // addPointsLog 内部会调用 recordPointTransaction,自动更新积分和记录交易
   await addPointsLog(user.id, merchantRegisterPoints, "merchant_register", `商家入驻奖励 +${merchantRegisterPoints}积分`)
-  await updateUserPoints(user.id, merchantRegisterPoints)
 
   // 发送通知：商家入驻成功
   await createNotification({
@@ -359,9 +358,8 @@ export async function topMerchant(merchantId: string, days: number) {
   }
 
   // 扣除积分
-  // 先记录交易（读取旧余额），再更新积分
+  // addPointsLog 内部会调用 recordPointTransaction,自动更新积分和记录交易
   await addPointsLog(user.id, -requiredPoints, "merchant_top", `商家置顶${days}天 -${requiredPoints}积分`)
-  await updateUserPoints(user.id, -requiredPoints)
 
   // 获取扣除后的积分余额
   const { data: updatedProfile } = await supabase
@@ -589,9 +587,8 @@ export async function editMerchant(
   }
 
   // 扣除积分
-  // 先记录交易（读取旧余额），再更新积分
+  // addPointsLog 内部会调用 recordPointTransaction,自动更新积分和记录交易
   await addPointsLog(user.id, -editMerchantCost, "merchant_edit", `编辑商家信息 -${editMerchantCost}积分`)
-  await updateUserPoints(user.id, -editMerchantCost)
 
   revalidatePath("/")
 

@@ -43,6 +43,7 @@ const TRANSACTION_TYPES = {
   profile_complete: { label: "完善资料", icon: Settings, color: "text-blue-600" },
   points_reward: { label: "积分奖励", icon: Award, color: "text-yellow-600" },
   system_adjustment: { label: "系统调整", icon: Settings, color: "text-gray-600" },
+  group_reward: { label: "用户组奖励", icon: Users, color: "text-green-600" },
 }
 
 export default function PointsHistoryPage() {

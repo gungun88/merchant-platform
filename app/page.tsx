@@ -15,7 +15,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Label } from "@/components/ui/label"
 import { Coins, AlertCircle } from "lucide-react"
 import { ContactDialog } from "@/components/contact-dialog"
-import { Navigation } from "@/components/navigation"
 import { PointsConfirmDialog } from "@/components/points-confirm-dialog"
 import { ReportDialog } from "@/components/report-dialog"
 import { ShareMerchantDialog } from "@/components/share-merchant-dialog"
@@ -23,6 +22,8 @@ import { MerchantNoteDialog } from "@/components/merchant-note-dialog"
 import { FloatingMenu } from "@/components/floating-menu"
 import { AnnouncementBanner } from "@/components/announcement-banner"
 import { MerchantListSkeleton } from "@/components/merchant-list-skeleton"
+import { LoadingProgress } from "@/components/loading-progress"
+import { HomeBanners } from "@/components/home-banners"
 import {
   Search,
   RefreshCw,
@@ -188,6 +189,9 @@ export default function MerchantCenter() {
   }, [])
 
   useEffect(() => {
+    // 只有在初始化完成后才加载商家数据
+    if (initializing) return
+
     async function loadMerchants() {
       setLoading(true)
       const result = await getMerchants({
@@ -200,7 +204,16 @@ export default function MerchantCenter() {
       setLoading(false)
     }
     loadMerchants()
-  }, [filters, currentPage, pageSize])
+  }, [
+    filters.service_type,
+    filters.location,
+    filters.price_range,
+    filters.merchant_type,
+    filters.search,
+    currentPage,
+    pageSize,
+    initializing,
+  ])
 
   // 优化：使用防抖的实时订阅，避免频繁重新加载
   useEffect(() => {
@@ -449,11 +462,11 @@ export default function MerchantCenter() {
   return (
     <TooltipProvider>
       <div className="min-h-screen bg-background pb-20">
-        {/* Navigation */}
-        <Navigation />
-
         {/* Main Content */}
         <main className="container mx-auto px-4 py-6 tracking-normal leading-7 font-medium">
+          {/* 广告Banner */}
+          <HomeBanners />
+
           {/* 公告展示 - 使用数据库公告 */}
           <AnnouncementBanner targetAudience="all" maxDisplay={3} className="mb-4" />
 
@@ -749,7 +762,7 @@ export default function MerchantCenter() {
           </div>
 
           {loading ? (
-            <MerchantListSkeleton />
+            <LoadingProgress isLoading={loading} message="正在加载商家列表..." />
           ) : merchants.length === 0 ? (
             <Card className="p-8 text-center">
               <p className="text-muted-foreground">暂无商家数据</p>

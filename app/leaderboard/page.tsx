@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { Navigation } from "@/components/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -67,7 +66,7 @@ export default function LeaderboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navigation />
+      
 
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         {/* 返回按钮和页面标题 */}

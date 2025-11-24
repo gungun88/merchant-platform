@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { addPointsLog, updateUserPoints } from "./points"
+import { addPointsLog } from "./points"
 import { createNotification } from "./notifications"
 import { getSystemSettings } from "./settings"
 
@@ -358,7 +358,7 @@ export async function processInvitationReward(invitationCode: string, inviteeId:
 
     // 2. 给邀请人增加积分
     console.log(`[服务端] 步骤2: 给邀请人增加${invitationPoints}积分`)
-    // 先记录交易（读取旧余额），再更新积分
+    // addPointsLog 内部会调用 recordPointTransaction,自动更新积分和记录交易
     await addPointsLog(
       inviterProfile.id,
       invitationPoints,
@@ -366,18 +366,12 @@ export async function processInvitationReward(invitationCode: string, inviteeId:
       `邀请好友注册奖励 +${invitationPoints}积分`,
       inviteeId,
     )
-    console.log("[服务端] 邀请人积分日志创建成功")
-
-    await updateUserPoints(inviterProfile.id, invitationPoints)
     console.log("[服务端] 邀请人积分更新成功")
 
     // 3. 给被邀请人增加积分（此时被邀请人已经有注册送的积分了，再加邀请奖励）
     console.log(`[服务端] 步骤3: 给被邀请人增加${invitationPoints}积分`)
-    // 先记录交易（读取旧余额），再更新积分
+    // addPointsLog 内部会调用 recordPointTransaction,自动更新积分和记录交易
     await addPointsLog(inviteeId, invitationPoints, "invited_reward", `通过邀请注册奖励 +${invitationPoints}积分`, inviterProfile.id)
-    console.log("[服务端] 被邀请人积分日志创建成功")
-
-    await updateUserPoints(inviteeId, invitationPoints)
     console.log("[服务端] 被邀请人积分更新成功")
 
     // 4. 发送通知给邀请人
