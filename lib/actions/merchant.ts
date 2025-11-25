@@ -338,9 +338,8 @@ export async function topMerchant(merchantId: string, days: number) {
     }
   }
 
-  // 叠加新的置顶天数,到期时间设置为当天的23:59:59
+  // 叠加新的置顶天数
   toppedUntil.setDate(toppedUntil.getDate() + days)
-  toppedUntil.setHours(23, 59, 59, 999)
 
   // 更新商家置顶状态 (自助置顶类型)
   const { error } = await supabase
@@ -1299,10 +1298,9 @@ export async function adminPinMerchant(merchantId: string, days: number = 7) {
       throw new Error("商家不存在")
     }
 
-    // 计算置顶截止时间,到期时间设置为当天的23:59:59
+    // 计算置顶截止时间
     const toppedUntil = new Date()
     toppedUntil.setDate(toppedUntil.getDate() + days)
-    toppedUntil.setHours(23, 59, 59, 999)
 
     // 更新商家置顶状态 (官方置顶: pin_type='admin', pin_expires_at设置到期时间)
     const { error: updateError } = await supabase
