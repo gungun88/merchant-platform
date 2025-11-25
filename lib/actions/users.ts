@@ -677,6 +677,93 @@ export async function batchTransferPoints(points: number, reason: string, target
 }
 
 /**
+ * 批量修改用户信息(管理员)
+ */
+export async function batchUpdateUsers(params: {
+  username?: string
+  avatar?: string
+  targetRole?: string
+}) {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { success: false, error: "未登录" }
+  }
+
+  // 验证管理员权限
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single()
+
+  if (!profile || profile.role !== "admin") {
+    return { success: false, error: "无权限操作" }
+  }
+
+  // 至少需要提供一个要修改的字段
+  if (!params.username && !params.avatar) {
+    return { success: false, error: "请至少提供用户名或头像" }
+  }
+
+  try {
+    // 构建更新数据
+    const updateData: any = {}
+    if (params.username) updateData.username = params.username
+    if (params.avatar) updateData.avatar = params.avatar
+
+    // 构建查询条件：排除管理员
+    let query = supabase
+      .from("profiles")
+      .update(updateData)
+      .neq("role", "admin")
+
+    // 根据目标角色过滤
+    if (params.targetRole && params.targetRole !== "all") {
+      if (params.targetRole === "user") {
+        query = query.eq("role", "user")
+      } else if (params.targetRole === "merchant") {
+        query = query.eq("role", "merchant")
+      }
+    }
+
+    const { error, count } = await query
+
+    if (error) {
+      console.error("Error in batchUpdateUsers:", error)
+      return { success: false, error: "批量修改失败" }
+    }
+
+    // 记录管理员操作
+    const { logAdminOperation } = await import("./admin")
+    await logAdminOperation({
+      operationType: "batch_update_users",
+      targetType: "user",
+      targetId: "batch",
+      description: `批量修改用户信息 ${params.username ? `用户名: ${params.username}` : ""} ${params.avatar ? `头像: ${params.avatar}` : ""}`,
+      metadata: {
+        ...params,
+        affectedCount: count || 0,
+      },
+    })
+
+    revalidatePath("/admin/users")
+    return {
+      success: true,
+      count: count || 0,
+      message: `批量修改完成：成功修改 ${count || 0} 位用户的信息`
+    }
+  } catch (error: any) {
+    console.error("Error in batchUpdateUsers:", error)
+    return { success: false, error: error.message }
+  }
+}
+
+/**
  * 创建新用户(管理员) - 无需邮箱验证
  */
 export async function createUser(data: CreateUserData) {

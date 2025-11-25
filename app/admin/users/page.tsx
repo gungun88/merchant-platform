@@ -94,6 +94,7 @@ export default function UsersPage() {
   const [pointsDialogOpen, setPointsDialogOpen] = useState(false)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [batchTransferDialogOpen, setBatchTransferDialogOpen] = useState(false)
+  const [batchUpdateDialogOpen, setBatchUpdateDialogOpen] = useState(false)
 
   // 表单状态
   const [banReason, setBanReason] = useState("")
@@ -112,6 +113,11 @@ export default function UsersPage() {
   // 批量转账表单状态
   const [batchTransferPoints, setBatchTransferPoints] = useState("")
   const [batchTransferReason, setBatchTransferReason] = useState("")
+
+  // 批量修改表单状态
+  const [batchUpdateUsername, setBatchUpdateUsername] = useState("")
+  const [batchUpdateAvatar, setBatchUpdateAvatar] = useState("")
+  const [batchUpdateTargetRole, setBatchUpdateTargetRole] = useState("all")
   const [batchTransferTargetRole, setBatchTransferTargetRole] = useState("all")
   const [batchTransferDate, setBatchTransferDate] = useState<Date | undefined>(new Date())
 
@@ -396,6 +402,48 @@ export default function UsersPage() {
     }
   }
 
+  // 批量修改用户信息
+  function handleBatchUpdateClick() {
+    setBatchUpdateDialogOpen(true)
+  }
+
+  async function handleBatchUpdate() {
+    if (!batchUpdateUsername && !batchUpdateAvatar) {
+      toast.error("请至少填写用户名或头像URL")
+      return
+    }
+
+    try {
+      setProcessing(true)
+
+      // 导入批量修改函数
+      const { batchUpdateUsers } = await import("@/lib/actions/users")
+
+      const result = await batchUpdateUsers({
+        username: batchUpdateUsername || undefined,
+        avatar: batchUpdateAvatar || undefined,
+        targetRole: batchUpdateTargetRole === "all" ? undefined : batchUpdateTargetRole,
+      })
+
+      if (!result.success) {
+        throw new Error(result.error)
+      }
+
+      toast.success(result.message || "批量修改成功")
+      setBatchUpdateDialogOpen(false)
+      setBatchUpdateUsername("")
+      setBatchUpdateAvatar("")
+      setBatchUpdateTargetRole("all")
+      router.refresh()
+      await loadUsers()
+    } catch (error: any) {
+      console.error("Error batch updating users:", error)
+      toast.error(error.message || "批量修改失败")
+    } finally {
+      setProcessing(false)
+    }
+  }
+
   // 过滤用户列表
   const filteredUsers = users
 
@@ -525,6 +573,10 @@ export default function UsersPage() {
                 </div>
               </div>
               <div className="flex gap-2">
+                <Button onClick={handleBatchUpdateClick} variant="default" size="sm">
+                  <User className="h-4 w-4 mr-2" />
+                  批量修改
+                </Button>
                 <Button onClick={handleBatchTransferClick} variant="default" size="sm">
                   <Send className="h-4 w-4 mr-2" />
                   批量转账
@@ -1350,6 +1402,116 @@ export default function UsersPage() {
               className="bg-blue-600 hover:bg-blue-700"
             >
               {processing ? "处理中..." : "确认转账"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 批量修改用户信息对话框 */}
+      <Dialog open={batchUpdateDialogOpen} onOpenChange={setBatchUpdateDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>批量修改用户信息</DialogTitle>
+            <DialogDescription>
+              批量修改符合条件用户的用户名和头像，至少填写一项
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="batch-update-target">
+                修改对象 <span className="text-red-500">*</span>
+              </Label>
+              <Select value={batchUpdateTargetRole} onValueChange={setBatchUpdateTargetRole}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">所有用户（排除管理员）</SelectItem>
+                  <SelectItem value="user">仅普通用户</SelectItem>
+                  <SelectItem value="merchant">仅商家用户</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                选择要修改信息的用户群体
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="batch-update-username">
+                新用户名（选填）
+              </Label>
+              <Input
+                id="batch-update-username"
+                placeholder="输入新的用户名，留空则不修改"
+                value={batchUpdateUsername}
+                onChange={(e) => setBatchUpdateUsername(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                如果填写，所有符合条件的用户名将被修改为此值
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="batch-update-avatar">
+                新头像URL（选填）
+              </Label>
+              <Input
+                id="batch-update-avatar"
+                placeholder="输入新的头像图片URL，留空则不修改"
+                value={batchUpdateAvatar}
+                onChange={(e) => setBatchUpdateAvatar(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                如果填写，所有符合条件的用户头像将被修改为此图片
+              </p>
+            </div>
+            {(batchUpdateUsername || batchUpdateAvatar) && (
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                <p className="text-sm text-orange-900">
+                  <span className="font-semibold">⚠️ 注意：</span>
+                  <br />
+                  此操作将批量修改{" "}
+                  <span className="font-bold">
+                    {batchUpdateTargetRole === "all"
+                      ? "所有用户"
+                      : batchUpdateTargetRole === "merchant"
+                        ? "所有商家用户"
+                        : "所有普通用户"}
+                  </span>
+                  （排除管理员）的信息。
+                  <br />
+                  {batchUpdateUsername && (
+                    <>
+                      用户名将修改为：<span className="font-bold">{batchUpdateUsername}</span>
+                      <br />
+                    </>
+                  )}
+                  {batchUpdateAvatar && (
+                    <>
+                      头像将修改为指定URL
+                      <br />
+                    </>
+                  )}
+                  操作不可撤销，请谨慎确认！
+                </p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setBatchUpdateDialogOpen(false)}
+              disabled={processing}
+            >
+              取消
+            </Button>
+            <Button
+              onClick={handleBatchUpdate}
+              disabled={
+                processing ||
+                (!batchUpdateUsername && !batchUpdateAvatar)
+              }
+              className="bg-orange-600 hover:bg-orange-700"
+            >
+              {processing ? "处理中..." : "确认修改"}
             </Button>
           </DialogFooter>
         </DialogContent>
