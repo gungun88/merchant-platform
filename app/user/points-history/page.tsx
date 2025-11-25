@@ -44,6 +44,7 @@ const TRANSACTION_TYPES = {
   points_reward: { label: "积分奖励", icon: Award, color: "text-yellow-600" },
   system_adjustment: { label: "系统调整", icon: Settings, color: "text-gray-600" },
   group_reward: { label: "用户组奖励", icon: Users, color: "text-green-600" },
+  coin_exchange: { label: "硬币兑换积分", icon: History, color: "text-emerald-600" },
 }
 
 export default function PointsHistoryPage() {

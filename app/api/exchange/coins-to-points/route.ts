@@ -278,7 +278,19 @@ export async function POST(request: NextRequest): Promise<NextResponse<ExchangeR
       })
       .eq('id', exchangeRecord.id)
 
-    // 14. 返回成功响应
+    // 14. 创建通知
+    await supabase
+      .from('notifications')
+      .insert({
+        user_id,
+        type: 'points',
+        title: '硬币兑换成功',
+        message: `您已成功将 ${coin_amount} 硬币兑换为 ${points_amount} 积分`,
+        link: '/user/points-history',
+        is_read: false
+      })
+
+    // 15. 返回成功响应
     return NextResponse.json(
       {
         success: true,
