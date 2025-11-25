@@ -408,8 +408,8 @@ export default function UsersPage() {
   }
 
   async function handleBatchUpdate() {
-    if (!batchUpdateUsername && !batchUpdateAvatar) {
-      toast.error("请至少填写用户名或头像URL")
+    if (!batchUpdateAvatar) {
+      toast.error("请输入头像URL")
       return
     }
 
@@ -420,8 +420,7 @@ export default function UsersPage() {
       const { batchUpdateUsers } = await import("@/lib/actions/users")
 
       const result = await batchUpdateUsers({
-        username: batchUpdateUsername || undefined,
-        avatar: batchUpdateAvatar || undefined,
+        avatar: batchUpdateAvatar,
         targetRole: batchUpdateTargetRole === "all" ? undefined : batchUpdateTargetRole,
       })
 
@@ -431,7 +430,6 @@ export default function UsersPage() {
 
       toast.success(result.message || "批量修改成功")
       setBatchUpdateDialogOpen(false)
-      setBatchUpdateUsername("")
       setBatchUpdateAvatar("")
       setBatchUpdateTargetRole("all")
       router.refresh()
@@ -1411,9 +1409,9 @@ export default function UsersPage() {
       <Dialog open={batchUpdateDialogOpen} onOpenChange={setBatchUpdateDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>批量修改用户信息</DialogTitle>
+            <DialogTitle>批量修改用户头像</DialogTitle>
             <DialogDescription>
-              批量修改符合条件用户的用户名和头像，至少填写一项
+              批量修改符合条件用户的头像
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -1432,38 +1430,24 @@ export default function UsersPage() {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                选择要修改信息的用户群体
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="batch-update-username">
-                新用户名（选填）
-              </Label>
-              <Input
-                id="batch-update-username"
-                placeholder="输入新的用户名，留空则不修改"
-                value={batchUpdateUsername}
-                onChange={(e) => setBatchUpdateUsername(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                如果填写，所有符合条件的用户名将被修改为此值
+                选择要修改头像的用户群体
               </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="batch-update-avatar">
-                新头像URL（选填）
+                新头像URL <span className="text-red-500">*</span>
               </Label>
               <Input
                 id="batch-update-avatar"
-                placeholder="输入新的头像图片URL，留空则不修改"
+                placeholder="输入新的头像图片URL"
                 value={batchUpdateAvatar}
                 onChange={(e) => setBatchUpdateAvatar(e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                如果填写，所有符合条件的用户头像将被修改为此图片
+                所有符合条件的用户头像将被修改为此图片
               </p>
             </div>
-            {(batchUpdateUsername || batchUpdateAvatar) && (
+            {batchUpdateAvatar && (
               <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
                 <p className="text-sm text-orange-900">
                   <span className="font-semibold">⚠️ 注意：</span>
@@ -1476,20 +1460,10 @@ export default function UsersPage() {
                         ? "所有商家用户"
                         : "所有普通用户"}
                   </span>
-                  （排除管理员）的信息。
+                  （排除管理员）的头像。
                   <br />
-                  {batchUpdateUsername && (
-                    <>
-                      用户名将修改为：<span className="font-bold">{batchUpdateUsername}</span>
-                      <br />
-                    </>
-                  )}
-                  {batchUpdateAvatar && (
-                    <>
-                      头像将修改为指定URL
-                      <br />
-                    </>
-                  )}
+                  头像将修改为指定URL
+                  <br />
                   操作不可撤销，请谨慎确认！
                 </p>
               </div>
@@ -1507,7 +1481,7 @@ export default function UsersPage() {
               onClick={handleBatchUpdate}
               disabled={
                 processing ||
-                (!batchUpdateUsername && !batchUpdateAvatar)
+                !batchUpdateAvatar
               }
               className="bg-orange-600 hover:bg-orange-700"
             >

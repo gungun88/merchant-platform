@@ -677,11 +677,10 @@ export async function batchTransferPoints(points: number, reason: string, target
 }
 
 /**
- * 批量修改用户信息(管理员)
+ * 批量修改用户头像(管理员)
  */
 export async function batchUpdateUsers(params: {
-  username?: string
-  avatar?: string
+  avatar: string
   targetRole?: string
 }) {
   const supabase = await createClient()
@@ -705,21 +704,16 @@ export async function batchUpdateUsers(params: {
     return { success: false, error: "无权限操作" }
   }
 
-  // 至少需要提供一个要修改的字段
-  if (!params.username && !params.avatar) {
-    return { success: false, error: "请至少提供用户名或头像" }
+  // 验证头像URL
+  if (!params.avatar) {
+    return { success: false, error: "请提供头像URL" }
   }
 
   try {
-    // 构建更新数据
-    const updateData: any = {}
-    if (params.username) updateData.username = params.username
-    if (params.avatar) updateData.avatar = params.avatar
-
     // 构建查询条件：排除管理员
     let query = supabase
       .from("profiles")
-      .update(updateData)
+      .update({ avatar: params.avatar })
       .neq("role", "admin")
 
     // 根据目标角色过滤
@@ -744,7 +738,7 @@ export async function batchUpdateUsers(params: {
       operationType: "batch_update_users",
       targetType: "user",
       targetId: "batch",
-      description: `批量修改用户信息 ${params.username ? `用户名: ${params.username}` : ""} ${params.avatar ? `头像: ${params.avatar}` : ""}`,
+      description: `批量修改用户头像: ${params.avatar}`,
       metadata: {
         ...params,
         affectedCount: data?.length || 0,
@@ -755,7 +749,7 @@ export async function batchUpdateUsers(params: {
     return {
       success: true,
       count: data?.length || 0,
-      message: `批量修改完成：成功修改 ${data?.length || 0} 位用户的信息`
+      message: `批量修改完成：成功修改 ${data?.length || 0} 位用户的头像`
     }
   } catch (error: any) {
     console.error("Error in batchUpdateUsers:", error)
