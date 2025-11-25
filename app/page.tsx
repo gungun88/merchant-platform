@@ -823,7 +823,7 @@ export default function MerchantCenter() {
                                   <AvatarFallback>{merchant.name[0]}</AvatarFallback>
                                 </Avatar>
                                 {/* 头像图标 - 官方置顶优先,自助置顶Pin次之,最后是押金Crown */}
-                                {merchant.pin_type === "admin" ? (
+                                {merchant.pin_type === "admin" && merchant.topped_until && new Date(merchant.topped_until) > new Date() ? (
                                   <Tooltip>
                                     <TooltipTrigger asChild>
                                       <div className="absolute -top-1 -right-1 rounded-full p-1 shadow-lg cursor-help" style={{ backgroundColor: '#2864b4' }}>
@@ -834,7 +834,7 @@ export default function MerchantCenter() {
                                       <p className="text-xs">官方置顶</p>
                                     </TooltipContent>
                                   </Tooltip>
-                                ) : merchant.pin_type === "self" || (merchant.is_topped && merchant.topped_until && new Date(merchant.topped_until) > new Date()) ? (
+                                ) : (merchant.pin_type === "self" || merchant.is_topped) && merchant.topped_until && new Date(merchant.topped_until) > new Date() ? (
                                   <Tooltip>
                                     <TooltipTrigger asChild>
                                       <div className="absolute -top-1 -right-1 bg-red-500 rounded-full p-0.5 shadow-md cursor-help">
@@ -1162,11 +1162,11 @@ export default function MerchantCenter() {
                           <AvatarFallback>{merchant.name[0]}</AvatarFallback>
                         </Avatar>
                         {/* 头像图标 - 官方置顶优先,自助置顶Pin次之,最后是押金Crown */}
-                        {merchant.pin_type === "admin" ? (
+                        {merchant.pin_type === "admin" && merchant.topped_until && new Date(merchant.topped_until) > new Date() ? (
                           <div className="absolute -top-0.5 -right-0.5 rounded-full p-1 shadow-md" style={{ backgroundColor: '#2864b4' }}>
                             <Layers3 className="h-3 w-3 text-white" />
                           </div>
-                        ) : merchant.pin_type === "self" || (merchant.is_topped && merchant.topped_until && new Date(merchant.topped_until) > new Date()) ? (
+                        ) : (merchant.pin_type === "self" || merchant.is_topped) && merchant.topped_until && new Date(merchant.topped_until) > new Date() ? (
                           <div className="absolute -top-0.5 -right-0.5 bg-red-500 rounded-full p-0.5 shadow-md">
                             <Pin className="h-3 w-3 text-white" fill="currentColor" />
                           </div>
