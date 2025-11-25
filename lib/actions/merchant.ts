@@ -136,6 +136,7 @@ export async function updateMerchant(
     name?: string
     description?: string
     short_desc?: string
+    logo?: string
     service_types?: string[]
     contact_wechat?: string
     contact_telegram?: string
@@ -177,6 +178,7 @@ export async function updateMerchant(
   if (formData.name !== undefined) sanitizedData.name = sanitizeText(formData.name)
   if (formData.description !== undefined) sanitizedData.description = sanitizeRichHTML(formData.description)
   if (formData.short_desc !== undefined) sanitizedData.short_desc = sanitizeText(formData.short_desc)
+  if (formData.logo !== undefined) sanitizedData.logo = formData.logo ? sanitizeText(formData.logo) : null
   if (formData.contact_wechat !== undefined) sanitizedData.contact_wechat = formData.contact_wechat ? sanitizeText(formData.contact_wechat) : null
   if (formData.contact_telegram !== undefined) sanitizedData.contact_telegram = formData.contact_telegram ? sanitizeText(formData.contact_telegram) : null
   if (formData.contact_whatsapp !== undefined) sanitizedData.contact_whatsapp = formData.contact_whatsapp ? sanitizeText(formData.contact_whatsapp) : null
