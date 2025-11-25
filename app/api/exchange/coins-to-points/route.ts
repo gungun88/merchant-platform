@@ -279,16 +279,28 @@ export async function POST(request: NextRequest): Promise<NextResponse<ExchangeR
       .eq('id', exchangeRecord.id)
 
     // 14. 创建通知
-    await supabase
+    const { error: notificationError } = await supabase
       .from('notifications')
       .insert({
         user_id,
-        type: 'points',
+        type: 'transaction',
+        category: 'coin_exchange',
         title: '硬币兑换成功',
-        message: `您已成功将 ${coin_amount} 硬币兑换为 ${points_amount} 积分`,
-        link: '/user/points-history',
+        content: `您已成功将 ${coin_amount} 硬币兑换为 ${points_amount} 积分`,
+        metadata: {
+          link: '/user/points-history',
+          coin_amount,
+          points_amount,
+          exchange_record_id: exchangeRecord.id
+        },
+        priority: 'normal',
         is_read: false
       })
+
+    if (notificationError) {
+      console.error('Failed to create notification:', notificationError)
+      // 不中断流程，即使通知创建失败也不影响兑换成功
+    }
 
     // 15. 返回成功响应
     return NextResponse.json(
