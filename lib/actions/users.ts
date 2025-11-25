@@ -731,11 +731,11 @@ export async function batchUpdateUsers(params: {
       }
     }
 
-    const { error, count } = await query
+    const { data, error, count } = await query.select()
 
     if (error) {
       console.error("Error in batchUpdateUsers:", error)
-      return { success: false, error: "批量修改失败" }
+      return { success: false, error: `批量修改失败: ${error.message}` }
     }
 
     // 记录管理员操作
@@ -747,15 +747,15 @@ export async function batchUpdateUsers(params: {
       description: `批量修改用户信息 ${params.username ? `用户名: ${params.username}` : ""} ${params.avatar ? `头像: ${params.avatar}` : ""}`,
       metadata: {
         ...params,
-        affectedCount: count || 0,
+        affectedCount: data?.length || 0,
       },
     })
 
     revalidatePath("/admin/users")
     return {
       success: true,
-      count: count || 0,
-      message: `批量修改完成：成功修改 ${count || 0} 位用户的信息`
+      count: data?.length || 0,
+      message: `批量修改完成：成功修改 ${data?.length || 0} 位用户的信息`
     }
   } catch (error: any) {
     console.error("Error in batchUpdateUsers:", error)
