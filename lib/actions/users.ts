@@ -677,10 +677,12 @@ export async function batchTransferPoints(points: number, reason: string, target
 }
 
 /**
- * 批量修改用户头像(管理员)
+ * 批量修改用户信息(管理员) - 支持头像修改、用户名添加前缀/后缀
  */
 export async function batchUpdateUsers(params: {
-  avatar: string
+  avatar?: string
+  usernamePrefix?: string
+  usernameSuffix?: string
   targetRole?: string
 }) {
   const supabase = await createClient()
@@ -704,16 +706,16 @@ export async function batchUpdateUsers(params: {
     return { success: false, error: "无权限操作" }
   }
 
-  // 验证头像URL
-  if (!params.avatar) {
-    return { success: false, error: "请提供头像URL" }
+  // 至少要提供一个修改项
+  if (!params.avatar && !params.usernamePrefix && !params.usernameSuffix) {
+    return { success: false, error: "请至少提供一个修改项（头像、用户名前缀或后缀）" }
   }
 
   try {
-    // 构建查询条件：排除管理员
+    // 1. 获取需要修改的用户列表
     let query = supabase
       .from("profiles")
-      .update({ avatar: params.avatar })
+      .select("id, username, avatar")
       .neq("role", "admin")
 
     // 根据目标角色过滤
@@ -725,31 +727,88 @@ export async function batchUpdateUsers(params: {
       }
     }
 
-    const { data, error, count } = await query.select()
+    const { data: targetUsers, error: fetchError } = await query
 
-    if (error) {
-      console.error("Error in batchUpdateUsers:", error)
-      return { success: false, error: `批量修改失败: ${error.message}` }
+    if (fetchError) {
+      console.error("Error fetching users:", fetchError)
+      return { success: false, error: `获取用户列表失败: ${fetchError.message}` }
     }
 
-    // 记录管理员操作
+    if (!targetUsers || targetUsers.length === 0) {
+      return { success: false, error: "没有找到符合条件的用户" }
+    }
+
+    // 2. 逐个更新用户信息
+    let successCount = 0
+    let failCount = 0
+    const errors: string[] = []
+
+    for (const targetUser of targetUsers) {
+      const updateData: any = {}
+
+      // 处理头像修改
+      if (params.avatar) {
+        updateData.avatar = params.avatar
+      }
+
+      // 处理用户名修改（添加前缀或后缀）
+      if (params.usernamePrefix || params.usernameSuffix) {
+        const prefix = params.usernamePrefix || ""
+        const suffix = params.usernameSuffix || ""
+        updateData.username = `${prefix}${targetUser.username}${suffix}`
+      }
+
+      // 执行更新
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update(updateData)
+        .eq("id", targetUser.id)
+
+      if (updateError) {
+        failCount++
+        errors.push(`用户 ${targetUser.username}: ${updateError.message}`)
+      } else {
+        successCount++
+      }
+    }
+
+    // 3. 记录管理员操作
     const { logAdminOperation } = await import("./admin")
+    const descriptionParts: string[] = []
+    if (params.avatar) descriptionParts.push(`头像: ${params.avatar}`)
+    if (params.usernamePrefix) descriptionParts.push(`前缀: ${params.usernamePrefix}`)
+    if (params.usernameSuffix) descriptionParts.push(`后缀: ${params.usernameSuffix}`)
+
     await logAdminOperation({
       operationType: "batch_update_users",
       targetType: "user",
       targetId: "batch",
-      description: `批量修改用户头像: ${params.avatar}`,
+      description: `批量修改用户信息: ${descriptionParts.join(", ")}`,
       metadata: {
         ...params,
-        affectedCount: data?.length || 0,
+        totalCount: targetUsers.length,
+        successCount,
+        failCount,
+        errors: errors.slice(0, 5), // 只记录前5个错误
       },
     })
 
     revalidatePath("/admin/users")
+
+    if (failCount > 0) {
+      return {
+        success: true,
+        count: successCount,
+        message: `批量修改完成：成功 ${successCount} 个，失败 ${failCount} 个`,
+        partialSuccess: true,
+        errors: errors.slice(0, 5),
+      }
+    }
+
     return {
       success: true,
-      count: data?.length || 0,
-      message: `批量修改完成：成功修改 ${data?.length || 0} 位用户的头像`
+      count: successCount,
+      message: `批量修改完成：成功修改 ${successCount} 位用户`
     }
   } catch (error: any) {
     console.error("Error in batchUpdateUsers:", error)

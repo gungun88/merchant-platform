@@ -115,7 +115,8 @@ export default function UsersPage() {
   const [batchTransferReason, setBatchTransferReason] = useState("")
 
   // 批量修改表单状态
-  const [batchUpdateUsername, setBatchUpdateUsername] = useState("")
+  const [batchUpdateUsernamePrefix, setBatchUpdateUsernamePrefix] = useState("")
+  const [batchUpdateUsernameSuffix, setBatchUpdateUsernameSuffix] = useState("")
   const [batchUpdateAvatar, setBatchUpdateAvatar] = useState("")
   const [batchUpdateTargetRole, setBatchUpdateTargetRole] = useState("all")
   const [batchTransferTargetRole, setBatchTransferTargetRole] = useState("all")
@@ -408,8 +409,9 @@ export default function UsersPage() {
   }
 
   async function handleBatchUpdate() {
-    if (!batchUpdateAvatar) {
-      toast.error("请输入头像URL")
+    // 至少要提供一个修改项
+    if (!batchUpdateAvatar && !batchUpdateUsernamePrefix && !batchUpdateUsernameSuffix) {
+      toast.error("请至少提供一个修改项（头像、用户名前缀或后缀）")
       return
     }
 
@@ -420,7 +422,9 @@ export default function UsersPage() {
       const { batchUpdateUsers } = await import("@/lib/actions/users")
 
       const result = await batchUpdateUsers({
-        avatar: batchUpdateAvatar,
+        avatar: batchUpdateAvatar || undefined,
+        usernamePrefix: batchUpdateUsernamePrefix || undefined,
+        usernameSuffix: batchUpdateUsernameSuffix || undefined,
         targetRole: batchUpdateTargetRole === "all" ? undefined : batchUpdateTargetRole,
       })
 
@@ -431,6 +435,8 @@ export default function UsersPage() {
       toast.success(result.message || "批量修改成功")
       setBatchUpdateDialogOpen(false)
       setBatchUpdateAvatar("")
+      setBatchUpdateUsernamePrefix("")
+      setBatchUpdateUsernameSuffix("")
       setBatchUpdateTargetRole("all")
       router.refresh()
       await loadUsers()
@@ -1407,11 +1413,11 @@ export default function UsersPage() {
 
       {/* 批量修改用户信息对话框 */}
       <Dialog open={batchUpdateDialogOpen} onOpenChange={setBatchUpdateDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>批量修改用户头像</DialogTitle>
+            <DialogTitle>批量修改用户信息</DialogTitle>
             <DialogDescription>
-              批量修改符合条件用户的头像
+              批量修改符合条件用户的头像和用户名（至少填写一项）
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -1430,24 +1436,67 @@ export default function UsersPage() {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                选择要修改头像的用户群体
+                选择要修改信息的用户群体
               </p>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="batch-update-avatar">
-                新头像URL <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="batch-update-avatar"
-                placeholder="输入新的头像图片URL"
-                value={batchUpdateAvatar}
-                onChange={(e) => setBatchUpdateAvatar(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                所有符合条件的用户头像将被修改为此图片
-              </p>
+
+            <div className="border-t pt-4">
+              <h4 className="text-sm font-semibold mb-3">修改选项（至少选择一项）</h4>
+
+              <div className="space-y-4">
+                {/* 用户名前缀 */}
+                <div className="space-y-2">
+                  <Label htmlFor="batch-update-username-prefix">
+                    用户名前缀
+                  </Label>
+                  <Input
+                    id="batch-update-username-prefix"
+                    placeholder="例如：VIP_（会添加到原用户名前）"
+                    value={batchUpdateUsernamePrefix}
+                    onChange={(e) => setBatchUpdateUsernamePrefix(e.target.value)}
+                    maxLength={20}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    前缀将添加到用户名前面，例如：原用户名"张三"→"VIP_张三"
+                  </p>
+                </div>
+
+                {/* 用户名后缀 */}
+                <div className="space-y-2">
+                  <Label htmlFor="batch-update-username-suffix">
+                    用户名后缀
+                  </Label>
+                  <Input
+                    id="batch-update-username-suffix"
+                    placeholder="例如：_2024（会添加到原用户名后）"
+                    value={batchUpdateUsernameSuffix}
+                    onChange={(e) => setBatchUpdateUsernameSuffix(e.target.value)}
+                    maxLength={20}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    后缀将添加到用户名后面，例如：原用户名"张三"→"张三_2024"
+                  </p>
+                </div>
+
+                {/* 头像URL */}
+                <div className="space-y-2">
+                  <Label htmlFor="batch-update-avatar">
+                    新头像URL
+                  </Label>
+                  <Input
+                    id="batch-update-avatar"
+                    placeholder="输入新的头像图片URL"
+                    value={batchUpdateAvatar}
+                    onChange={(e) => setBatchUpdateAvatar(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    所有符合条件的用户头像将被修改为此图片
+                  </p>
+                </div>
+              </div>
             </div>
-            {batchUpdateAvatar && (
+
+            {(batchUpdateAvatar || batchUpdateUsernamePrefix || batchUpdateUsernameSuffix) && (
               <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
                 <p className="text-sm text-orange-900">
                   <span className="font-semibold">⚠️ 注意：</span>
@@ -1460,10 +1509,26 @@ export default function UsersPage() {
                         ? "所有商家用户"
                         : "所有普通用户"}
                   </span>
-                  （排除管理员）的头像。
+                  （排除管理员）的信息。
                   <br />
-                  头像将修改为指定URL
-                  <br />
+                  {batchUpdateUsernamePrefix && (
+                    <>
+                      用户名将添加前缀：<span className="font-bold">{batchUpdateUsernamePrefix}</span>
+                      <br />
+                    </>
+                  )}
+                  {batchUpdateUsernameSuffix && (
+                    <>
+                      用户名将添加后缀：<span className="font-bold">{batchUpdateUsernameSuffix}</span>
+                      <br />
+                    </>
+                  )}
+                  {batchUpdateAvatar && (
+                    <>
+                      头像将修改为指定URL
+                      <br />
+                    </>
+                  )}
                   操作不可撤销，请谨慎确认！
                 </p>
               </div>
@@ -1481,7 +1546,7 @@ export default function UsersPage() {
               onClick={handleBatchUpdate}
               disabled={
                 processing ||
-                !batchUpdateAvatar
+                (!batchUpdateAvatar && !batchUpdateUsernamePrefix && !batchUpdateUsernameSuffix)
               }
               className="bg-orange-600 hover:bg-orange-700"
             >
