@@ -497,14 +497,27 @@ export async function getMerchants(filters?: {
   // 在内存中进行多级排序：官方置顶 → 自助置顶 → 积分 → 创建时间
   filteredData.sort((a: any, b: any) => {
     // 1. 首先按置顶类型排序 (admin > self > null)
-    const getPinPriority = (pinType: string | null) => {
-      if (pinType === "admin") return 3 // 官方置顶优先级最高
-      if (pinType === "self") return 2 // 自助置顶次之
-      return 1 // 未置顶
+    const now = new Date()
+    const getPinPriority = (merchant: any) => {
+      // 检查官方置顶是否过期
+      if (merchant.pin_type === "admin") {
+        const toppedUntil = merchant.topped_until ? new Date(merchant.topped_until) : null
+        if (toppedUntil && toppedUntil > now) {
+          return 3 // 官方置顶且未过期，优先级最高
+        }
+      }
+      // 检查自助置顶是否过期
+      if (merchant.pin_type === "self" || merchant.is_topped) {
+        const toppedUntil = merchant.topped_until ? new Date(merchant.topped_until) : null
+        if (toppedUntil && toppedUntil > now) {
+          return 2 // 自助置顶且未过期，次之
+        }
+      }
+      return 1 // 未置顶或已过期
     }
 
-    const priorityA = getPinPriority(a.pin_type)
-    const priorityB = getPinPriority(b.pin_type)
+    const priorityA = getPinPriority(a)
+    const priorityB = getPinPriority(b)
 
     if (priorityA !== priorityB) {
       return priorityB - priorityA // 优先级高的在前
