@@ -677,12 +677,17 @@ export async function batchTransferPoints(points: number, reason: string, target
 }
 
 /**
- * 批量修改用户信息(管理员) - 支持头像修改、用户名添加前缀/后缀
+ * 批量修改用户信息(管理员) - 支持头像修改、用户名添加前缀/后缀、重置为用户编号、查找替换
  */
 export async function batchUpdateUsers(params: {
   avatar?: string
   usernamePrefix?: string
   usernameSuffix?: string
+  resetToUserNumber?: boolean // 重置为用户编号格式
+  usernameFormat?: string // 用户编号格式模板，如 "用户{number}"
+  findText?: string // 查找文本
+  replaceText?: string // 替换文本
+  filterKeyword?: string // 筛选关键词（只修改包含此关键词的用户）
   targetRole?: string
 }) {
   const supabase = await createClient()
@@ -707,15 +712,21 @@ export async function batchUpdateUsers(params: {
   }
 
   // 至少要提供一个修改项
-  if (!params.avatar && !params.usernamePrefix && !params.usernameSuffix) {
-    return { success: false, error: "请至少提供一个修改项（头像、用户名前缀或后缀）" }
+  if (
+    !params.avatar &&
+    !params.usernamePrefix &&
+    !params.usernameSuffix &&
+    !params.resetToUserNumber &&
+    !params.findText
+  ) {
+    return { success: false, error: "请至少提供一个修改项" }
   }
 
   try {
     // 1. 获取需要修改的用户列表
     let query = supabase
       .from("profiles")
-      .select("id, username, avatar")
+      .select("id, username, avatar, user_number")
       .neq("role", "admin")
 
     // 根据目标角色过滤
@@ -738,12 +749,21 @@ export async function batchUpdateUsers(params: {
       return { success: false, error: "没有找到符合条件的用户" }
     }
 
-    // 2. 逐个更新用户信息
+    // 2. 如果有关键词筛选，过滤用户列表
+    let filteredUsers = targetUsers
+    if (params.filterKeyword) {
+      filteredUsers = targetUsers.filter(u => u.username.includes(params.filterKeyword!))
+      if (filteredUsers.length === 0) {
+        return { success: false, error: `没有找到包含关键词"${params.filterKeyword}"的用户` }
+      }
+    }
+
+    // 3. 逐个更新用户信息
     let successCount = 0
     let failCount = 0
     const errors: string[] = []
 
-    for (const targetUser of targetUsers) {
+    for (const targetUser of filteredUsers) {
       const updateData: any = {}
 
       // 处理头像修改
@@ -751,33 +771,56 @@ export async function batchUpdateUsers(params: {
         updateData.avatar = params.avatar
       }
 
-      // 处理用户名修改（添加前缀或后缀）
-      if (params.usernamePrefix || params.usernameSuffix) {
+      // 处理用户名修改
+      let newUsername = targetUser.username
+
+      // 优先级1: 重置为用户编号格式
+      if (params.resetToUserNumber) {
+        const format = params.usernameFormat || "用户{number}"
+        newUsername = format.replace("{number}", targetUser.user_number.toString())
+      }
+      // 优先级2: 查找替换
+      else if (params.findText && params.replaceText !== undefined) {
+        newUsername = newUsername.replace(new RegExp(params.findText, 'g'), params.replaceText)
+      }
+      // 优先级3: 添加前缀或后缀
+      else if (params.usernamePrefix || params.usernameSuffix) {
         const prefix = params.usernamePrefix || ""
         const suffix = params.usernameSuffix || ""
-        updateData.username = `${prefix}${targetUser.username}${suffix}`
+        newUsername = `${prefix}${newUsername}${suffix}`
       }
 
-      // 执行更新
-      const { error: updateError } = await supabase
-        .from("profiles")
-        .update(updateData)
-        .eq("id", targetUser.id)
+      if (newUsername !== targetUser.username) {
+        updateData.username = newUsername
+      }
 
-      if (updateError) {
-        failCount++
-        errors.push(`用户 ${targetUser.username}: ${updateError.message}`)
-      } else {
-        successCount++
+      // 如果有更新项，执行更新
+      if (Object.keys(updateData).length > 0) {
+        const { error: updateError } = await supabase
+          .from("profiles")
+          .update(updateData)
+          .eq("id", targetUser.id)
+
+        if (updateError) {
+          failCount++
+          errors.push(`用户 ${targetUser.username}: ${updateError.message}`)
+        } else {
+          successCount++
+        }
       }
     }
 
-    // 3. 记录管理员操作
+    // 4. 记录管理员操作
     const { logAdminOperation } = await import("./admin")
     const descriptionParts: string[] = []
     if (params.avatar) descriptionParts.push(`头像: ${params.avatar}`)
-    if (params.usernamePrefix) descriptionParts.push(`前缀: ${params.usernamePrefix}`)
-    if (params.usernameSuffix) descriptionParts.push(`后缀: ${params.usernameSuffix}`)
+    if (params.resetToUserNumber) descriptionParts.push(`重置为用户编号格式: ${params.usernameFormat || "用户{number}"}`)
+    else if (params.findText) descriptionParts.push(`查找替换: "${params.findText}" → "${params.replaceText}"`)
+    else {
+      if (params.usernamePrefix) descriptionParts.push(`前缀: ${params.usernamePrefix}`)
+      if (params.usernameSuffix) descriptionParts.push(`后缀: ${params.usernameSuffix}`)
+    }
+    if (params.filterKeyword) descriptionParts.push(`筛选关键词: ${params.filterKeyword}`)
 
     await logAdminOperation({
       operationType: "batch_update_users",
@@ -786,7 +829,7 @@ export async function batchUpdateUsers(params: {
       description: `批量修改用户信息: ${descriptionParts.join(", ")}`,
       metadata: {
         ...params,
-        totalCount: targetUsers.length,
+        totalCount: filteredUsers.length,
         successCount,
         failCount,
         errors: errors.slice(0, 5), // 只记录前5个错误

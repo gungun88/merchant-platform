@@ -119,6 +119,11 @@ export default function UsersPage() {
   const [batchUpdateUsernameSuffix, setBatchUpdateUsernameSuffix] = useState("")
   const [batchUpdateAvatar, setBatchUpdateAvatar] = useState("")
   const [batchUpdateTargetRole, setBatchUpdateTargetRole] = useState("all")
+  const [batchUpdateResetToUserNumber, setBatchUpdateResetToUserNumber] = useState(false)
+  const [batchUpdateUsernameFormat, setBatchUpdateUsernameFormat] = useState("用户{number}")
+  const [batchUpdateFindText, setBatchUpdateFindText] = useState("")
+  const [batchUpdateReplaceText, setBatchUpdateReplaceText] = useState("")
+  const [batchUpdateFilterKeyword, setBatchUpdateFilterKeyword] = useState("")
   const [batchTransferTargetRole, setBatchTransferTargetRole] = useState("all")
   const [batchTransferDate, setBatchTransferDate] = useState<Date | undefined>(new Date())
 
@@ -410,8 +415,20 @@ export default function UsersPage() {
 
   async function handleBatchUpdate() {
     // 至少要提供一个修改项
-    if (!batchUpdateAvatar && !batchUpdateUsernamePrefix && !batchUpdateUsernameSuffix) {
-      toast.error("请至少提供一个修改项（头像、用户名前缀或后缀）")
+    if (
+      !batchUpdateAvatar &&
+      !batchUpdateUsernamePrefix &&
+      !batchUpdateUsernameSuffix &&
+      !batchUpdateResetToUserNumber &&
+      !batchUpdateFindText
+    ) {
+      toast.error("请至少提供一个修改项")
+      return
+    }
+
+    // 如果选择查找替换，必须填写查找文本
+    if (batchUpdateFindText && batchUpdateReplaceText === undefined) {
+      toast.error("请填写替换文本（可以为空）")
       return
     }
 
@@ -425,6 +442,11 @@ export default function UsersPage() {
         avatar: batchUpdateAvatar || undefined,
         usernamePrefix: batchUpdateUsernamePrefix || undefined,
         usernameSuffix: batchUpdateUsernameSuffix || undefined,
+        resetToUserNumber: batchUpdateResetToUserNumber || undefined,
+        usernameFormat: batchUpdateResetToUserNumber ? batchUpdateUsernameFormat : undefined,
+        findText: batchUpdateFindText || undefined,
+        replaceText: batchUpdateFindText ? batchUpdateReplaceText : undefined,
+        filterKeyword: batchUpdateFilterKeyword || undefined,
         targetRole: batchUpdateTargetRole === "all" ? undefined : batchUpdateTargetRole,
       })
 
@@ -434,9 +456,15 @@ export default function UsersPage() {
 
       toast.success(result.message || "批量修改成功")
       setBatchUpdateDialogOpen(false)
+      // 重置所有表单状态
       setBatchUpdateAvatar("")
       setBatchUpdateUsernamePrefix("")
       setBatchUpdateUsernameSuffix("")
+      setBatchUpdateResetToUserNumber(false)
+      setBatchUpdateUsernameFormat("用户{number}")
+      setBatchUpdateFindText("")
+      setBatchUpdateReplaceText("")
+      setBatchUpdateFilterKeyword("")
       setBatchUpdateTargetRole("all")
       router.refresh()
       await loadUsers()
@@ -1413,14 +1441,15 @@ export default function UsersPage() {
 
       {/* 批量修改用户信息对话框 */}
       <Dialog open={batchUpdateDialogOpen} onOpenChange={setBatchUpdateDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>批量修改用户信息</DialogTitle>
             <DialogDescription>
-              批量修改符合条件用户的头像和用户名（至少填写一项）
+              支持多种批量修改方式，至少选择一项进行修改
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-6 py-4">
+            {/* 修改对象 */}
             <div className="space-y-2">
               <Label htmlFor="batch-update-target">
                 修改对象 <span className="text-red-500">*</span>
@@ -1440,48 +1469,169 @@ export default function UsersPage() {
               </p>
             </div>
 
+            {/* 关键词筛选 */}
+            <div className="space-y-2 border-t pt-4">
+              <Label htmlFor="batch-update-filter">
+                🔍 关键词筛选（可选）
+              </Label>
+              <Input
+                id="batch-update-filter"
+                placeholder="输入关键词，只修改用户名包含此关键词的用户（如：测试）"
+                value={batchUpdateFilterKeyword}
+                onChange={(e) => setBatchUpdateFilterKeyword(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                例如：输入"测试"，将只修改用户名包含"测试"的用户
+              </p>
+            </div>
+
             <div className="border-t pt-4">
-              <h4 className="text-sm font-semibold mb-3">修改选项（至少选择一项）</h4>
+              <h4 className="text-sm font-semibold mb-4">修改方式（选择一种，优先级从上到下）</h4>
 
-              <div className="space-y-4">
-                {/* 用户名前缀 */}
-                <div className="space-y-2">
-                  <Label htmlFor="batch-update-username-prefix">
-                    用户名前缀
-                  </Label>
-                  <Input
-                    id="batch-update-username-prefix"
-                    placeholder="例如：VIP_（会添加到原用户名前）"
-                    value={batchUpdateUsernamePrefix}
-                    onChange={(e) => setBatchUpdateUsernamePrefix(e.target.value)}
-                    maxLength={20}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    前缀将添加到用户名前面，例如：原用户名"张三"→"VIP_张三"
-                  </p>
+              <div className="space-y-6">
+                {/* 方案1: 重置为用户编号 */}
+                <div className="border rounded-lg p-4 space-y-3 bg-blue-50/30">
+                  <div className="flex items-start gap-2">
+                    <Checkbox
+                      id="reset-to-user-number"
+                      checked={batchUpdateResetToUserNumber}
+                      onCheckedChange={(checked) => {
+                        setBatchUpdateResetToUserNumber(!!checked)
+                        if (checked) {
+                          // 清空其他选项
+                          setBatchUpdateFindText("")
+                          setBatchUpdateReplaceText("")
+                          setBatchUpdateUsernamePrefix("")
+                          setBatchUpdateUsernameSuffix("")
+                        }
+                      }}
+                    />
+                    <div className="flex-1">
+                      <Label htmlFor="reset-to-user-number" className="cursor-pointer font-semibold">
+                        ⭐ 重置为用户编号格式（推荐）
+                      </Label>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        将用户名统一重置为指定格式，使用{`{number}`}表示用户编号
+                      </p>
+                    </div>
+                  </div>
+                  {batchUpdateResetToUserNumber && (
+                    <div className="ml-6 space-y-2">
+                      <Input
+                        placeholder="用户{number}"
+                        value={batchUpdateUsernameFormat}
+                        onChange={(e) => setBatchUpdateUsernameFormat(e.target.value)}
+                      />
+                      <p className="text-xs text-green-600">
+                        预览：用户编号2570 → {batchUpdateUsernameFormat.replace("{number}", "2570")}
+                      </p>
+                    </div>
+                  )}
                 </div>
 
-                {/* 用户名后缀 */}
-                <div className="space-y-2">
-                  <Label htmlFor="batch-update-username-suffix">
-                    用户名后缀
-                  </Label>
-                  <Input
-                    id="batch-update-username-suffix"
-                    placeholder="例如：_2024（会添加到原用户名后）"
-                    value={batchUpdateUsernameSuffix}
-                    onChange={(e) => setBatchUpdateUsernameSuffix(e.target.value)}
-                    maxLength={20}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    后缀将添加到用户名后面，例如：原用户名"张三"→"张三_2024"
-                  </p>
+                {/* 方案2: 查找替换 */}
+                <div className="border rounded-lg p-4 space-y-3">
+                  <div className="flex items-start gap-2">
+                    <Checkbox
+                      id="find-replace"
+                      checked={!!batchUpdateFindText}
+                      onCheckedChange={(checked) => {
+                        if (!checked) {
+                          setBatchUpdateFindText("")
+                          setBatchUpdateReplaceText("")
+                        }
+                      }}
+                    />
+                    <div className="flex-1">
+                      <Label htmlFor="find-replace" className="cursor-pointer font-semibold">
+                        🔄 查找替换
+                      </Label>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        查找用户名中的特定文本并替换为新文本
+                      </p>
+                    </div>
+                  </div>
+                  {(batchUpdateFindText || (!batchUpdateResetToUserNumber && !batchUpdateUsernamePrefix && !batchUpdateUsernameSuffix)) && (
+                    <div className="ml-6 space-y-2">
+                      <Input
+                        placeholder="查找文本（如：测试）"
+                        value={batchUpdateFindText}
+                        onChange={(e) => {
+                          setBatchUpdateFindText(e.target.value)
+                          if (e.target.value) {
+                            setBatchUpdateResetToUserNumber(false)
+                            setBatchUpdateUsernamePrefix("")
+                            setBatchUpdateUsernameSuffix("")
+                          }
+                        }}
+                      />
+                      <Input
+                        placeholder="替换为（如：玩家，留空表示删除）"
+                        value={batchUpdateReplaceText}
+                        onChange={(e) => setBatchUpdateReplaceText(e.target.value)}
+                      />
+                      {batchUpdateFindText && (
+                        <p className="text-xs text-green-600">
+                          预览："测试01" → "{`测试01`.replace(new RegExp(batchUpdateFindText, 'g'), batchUpdateReplaceText || "")}"
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
 
-                {/* 头像URL */}
-                <div className="space-y-2">
-                  <Label htmlFor="batch-update-avatar">
-                    新头像URL
+                {/* 方案3: 添加前缀后缀 */}
+                <div className="border rounded-lg p-4 space-y-3">
+                  <Label className="font-semibold">➕ 添加前缀/后缀</Label>
+                  <p className="text-xs text-muted-foreground">
+                    在原用户名前面或后面添加文本
+                  </p>
+                  <div className="ml-6 space-y-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="batch-update-username-prefix">前缀</Label>
+                      <Input
+                        id="batch-update-username-prefix"
+                        placeholder="例如：VIP_"
+                        value={batchUpdateUsernamePrefix}
+                        onChange={(e) => {
+                          setBatchUpdateUsernamePrefix(e.target.value)
+                          if (e.target.value) {
+                            setBatchUpdateResetToUserNumber(false)
+                            setBatchUpdateFindText("")
+                            setBatchUpdateReplaceText("")
+                          }
+                        }}
+                        maxLength={20}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="batch-update-username-suffix">后缀</Label>
+                      <Input
+                        id="batch-update-username-suffix"
+                        placeholder="例如：_2024"
+                        value={batchUpdateUsernameSuffix}
+                        onChange={(e) => {
+                          setBatchUpdateUsernameSuffix(e.target.value)
+                          if (e.target.value) {
+                            setBatchUpdateResetToUserNumber(false)
+                            setBatchUpdateFindText("")
+                            setBatchUpdateReplaceText("")
+                          }
+                        }}
+                        maxLength={20}
+                      />
+                    </div>
+                    {(batchUpdateUsernamePrefix || batchUpdateUsernameSuffix) && (
+                      <p className="text-xs text-green-600">
+                        预览：张三 → {batchUpdateUsernamePrefix}张三{batchUpdateUsernameSuffix}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* 头像修改 */}
+                <div className="border rounded-lg p-4 space-y-3 bg-gray-50/30">
+                  <Label htmlFor="batch-update-avatar" className="font-semibold">
+                    🖼️ 修改头像
                   </Label>
                   <Input
                     id="batch-update-avatar"
@@ -1496,12 +1646,13 @@ export default function UsersPage() {
               </div>
             </div>
 
-            {(batchUpdateAvatar || batchUpdateUsernamePrefix || batchUpdateUsernameSuffix) && (
+            {/* 警告提示 */}
+            {(batchUpdateAvatar || batchUpdateUsernamePrefix || batchUpdateUsernameSuffix || batchUpdateResetToUserNumber || batchUpdateFindText) && (
               <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
                 <p className="text-sm text-orange-900">
-                  <span className="font-semibold">⚠️ 注意：</span>
+                  <span className="font-semibold">⚠️ 操作预览：</span>
                   <br />
-                  此操作将批量修改{" "}
+                  将批量修改{" "}
                   <span className="font-bold">
                     {batchUpdateTargetRole === "all"
                       ? "所有用户"
@@ -1509,27 +1660,42 @@ export default function UsersPage() {
                         ? "所有商家用户"
                         : "所有普通用户"}
                   </span>
-                  （排除管理员）的信息。
+                  {batchUpdateFilterKeyword && (
+                    <>（仅用户名包含"{batchUpdateFilterKeyword}"的用户）</>
+                  )}
+                  （排除管理员）
                   <br />
+                  {batchUpdateResetToUserNumber && (
+                    <>
+                      • 用户名将重置为：<span className="font-bold">{batchUpdateUsernameFormat}</span>
+                      <br />
+                    </>
+                  )}
+                  {batchUpdateFindText && (
+                    <>
+                      • 查找"{batchUpdateFindText}"替换为"{batchUpdateReplaceText || "(删除)"}"
+                      <br />
+                    </>
+                  )}
                   {batchUpdateUsernamePrefix && (
                     <>
-                      用户名将添加前缀：<span className="font-bold">{batchUpdateUsernamePrefix}</span>
+                      • 添加前缀：<span className="font-bold">{batchUpdateUsernamePrefix}</span>
                       <br />
                     </>
                   )}
                   {batchUpdateUsernameSuffix && (
                     <>
-                      用户名将添加后缀：<span className="font-bold">{batchUpdateUsernameSuffix}</span>
+                      • 添加后缀：<span className="font-bold">{batchUpdateUsernameSuffix}</span>
                       <br />
                     </>
                   )}
                   {batchUpdateAvatar && (
                     <>
-                      头像将修改为指定URL
+                      • 修改头像为指定URL
                       <br />
                     </>
                   )}
-                  操作不可撤销，请谨慎确认！
+                  <span className="text-red-600 font-medium">操作不可撤销，请谨慎确认！</span>
                 </p>
               </div>
             )}
@@ -1546,7 +1712,13 @@ export default function UsersPage() {
               onClick={handleBatchUpdate}
               disabled={
                 processing ||
-                (!batchUpdateAvatar && !batchUpdateUsernamePrefix && !batchUpdateUsernameSuffix)
+                (
+                  !batchUpdateAvatar &&
+                  !batchUpdateUsernamePrefix &&
+                  !batchUpdateUsernameSuffix &&
+                  !batchUpdateResetToUserNumber &&
+                  !batchUpdateFindText
+                )
               }
               className="bg-orange-600 hover:bg-orange-700"
             >
