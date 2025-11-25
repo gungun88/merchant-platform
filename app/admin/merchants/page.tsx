@@ -546,6 +546,7 @@ export default function MerchantsPage() {
                         <TableHead>类型</TableHead>
                         <TableHead>押金</TableHead>
                         <TableHead>信用分</TableHead>
+                        <TableHead>置顶状态</TableHead>
                         <TableHead>创建时间</TableHead>
                         <TableHead>状态</TableHead>
                         <TableHead className="text-right">操作</TableHead>
@@ -655,6 +656,46 @@ export default function MerchantsPage() {
                                  '信用较差'}
                               </p>
                             </div>
+                          </TableCell>
+                          {/* 置顶状态列 */}
+                          <TableCell>
+                            {(() => {
+                              const now = new Date()
+                              const toppedUntil = merchant.topped_until ? new Date(merchant.topped_until) : null
+                              const isExpired = toppedUntil && toppedUntil < now
+                              const isTopped = merchant.is_topped && toppedUntil && toppedUntil > now
+
+                              if (isTopped) {
+                                return (
+                                  <div className="text-sm">
+                                    <Badge variant="outline" className="border-purple-300 bg-purple-50 text-purple-700 mb-1">
+                                      <Pin className="h-3 w-3 mr-1" />
+                                      已置顶
+                                    </Badge>
+                                    <p className="text-xs text-muted-foreground whitespace-nowrap">
+                                      到期: {toppedUntil.toLocaleDateString("zh-CN")}
+                                    </p>
+                                  </div>
+                                )
+                              } else if (isExpired) {
+                                return (
+                                  <div className="text-sm">
+                                    <Badge variant="outline" className="border-gray-300 bg-gray-50 text-gray-500">
+                                      未置顶
+                                    </Badge>
+                                    <p className="text-xs text-red-600 whitespace-nowrap">
+                                      已过期: {toppedUntil.toLocaleDateString("zh-CN")}
+                                    </p>
+                                  </div>
+                                )
+                              } else {
+                                return (
+                                  <Badge variant="outline" className="border-gray-300 bg-gray-50 text-gray-500">
+                                    未置顶
+                                  </Badge>
+                                )
+                              }
+                            })()}
                           </TableCell>
                           {/* 创建时间列 */}
                           <TableCell>
