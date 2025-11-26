@@ -787,24 +787,24 @@ export default function MerchantCenter() {
             <>
               {/* PC端：表格布局 */}
               <Card className="leading-7 py-px font-normal hidden lg:block">
-                <div className="overflow-x-auto">
+                <div className="overflow-x-hidden">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                      <TableHead className="w-[180px]">名称</TableHead>
-                      <TableHead className="w-[180px]">类型</TableHead>
-                      <TableHead className="w-[220px]">详情描述</TableHead>
-                      <TableHead className="w-[120px]">价格区间</TableHead>
-                      <TableHead className="w-[140px]">认证</TableHead>
-                      <TableHead className="w-[100px]">信用分</TableHead>
-                      <TableHead className="w-[100px]">地区</TableHead>
-                      <TableHead className="w-[100px]">响应速度</TableHead>
-                      <TableHead className="w-[100px]">入驻时长</TableHead>
-                      <TableHead className="w-[140px]">售后保障</TableHead>
-                      <TableHead className="w-[140px]">支付方式</TableHead>
-                      <TableHead className="w-[100px]">库存</TableHead>
-                      <TableHead className="w-[120px]">联系方式</TableHead>
-                      <TableHead className="w-[80px] text-right">操作</TableHead>
+                      <TableHead className="w-[160px]">名称</TableHead>
+                      <TableHead className="w-[130px]">类型</TableHead>
+                      <TableHead className="min-w-[180px]">详情描述</TableHead>
+                      <TableHead className="w-[100px]">价格区间</TableHead>
+                      <TableHead className="w-[80px]">认证</TableHead>
+                      <TableHead className="w-[80px]">信用分</TableHead>
+                      <TableHead className="w-[80px]">地区</TableHead>
+                      <TableHead className="w-[90px]">响应速度</TableHead>
+                      <TableHead className="w-[80px]">入驻时长</TableHead>
+                      <TableHead className="w-[110px]">售后保障</TableHead>
+                      <TableHead className="w-[110px]">支付方式</TableHead>
+                      <TableHead className="w-[80px]">库存</TableHead>
+                      <TableHead className="w-[100px]">联系方式</TableHead>
+                      <TableHead className="w-[70px] text-right">操作</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
