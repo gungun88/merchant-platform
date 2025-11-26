@@ -613,46 +613,50 @@ export async function batchTransferPoints(points: number, reason: string, target
       timeZone: "Asia/Shanghai"
     })
 
-    // 批量更新用户积分
+    // 批量更新用户积分 - 使用 RPC 函数确保事务一致性
     const updatePromises = targetUsers.map(async (targetUser) => {
-      const newPoints = (targetUser.points || 0) + points
-
-      // 更新积分
-      const { error: updateError } = await supabase
-        .from("profiles")
-        .update({
-          points: newPoints,
-          updated_at: new Date().toISOString(),
+      try {
+        // ✅ 使用 record_point_transaction RPC 函数来更新积分
+        // 这个函数会自动更新 profiles.points 并创建交易记录
+        const { data: transactionId, error: rpcError } = await supabase.rpc("record_point_transaction", {
+          p_user_id: targetUser.id,
+          p_amount: points,
+          p_type: "points_reward",
+          p_description: `${reason}（活动日期：${dateStr}）`,
+          p_related_user_id: null,
+          p_related_merchant_id: null,
+          p_metadata: {
+            scheduled_date: scheduledTime.toISOString(),
+            activity_date: dateStr,
+            transfer_reason: reason
+          }
         })
-        .eq("id", targetUser.id)
 
-      if (updateError) {
-        console.error(`Error updating points for user ${targetUser.id}:`, updateError)
-        return { userId: targetUser.id, success: false, error: updateError.message }
+        if (rpcError) {
+          console.error(`Error recording points for user ${targetUser.id}:`, rpcError)
+          return { userId: targetUser.id, success: false, error: rpcError.message }
+        }
+
+        // 计算新积分（用于通知）
+        const newPoints = (targetUser.points || 0) + points
+
+        // 发送通知 - 包含日期信息
+        const notificationContent = `您获得了 ${points} 积分。原因：${reason}（活动日期：${dateStr}）。当前积分：${newPoints}`
+
+        await supabase.from("notifications").insert({
+          user_id: targetUser.id,
+          type: "points_reward",
+          category: "system",
+          title: "积分奖励",
+          content: notificationContent,
+          priority: "normal",
+        })
+
+        return { userId: targetUser.id, success: true }
+      } catch (error: any) {
+        console.error(`Exception for user ${targetUser.id}:`, error)
+        return { userId: targetUser.id, success: false, error: error.message }
       }
-
-      // 创建积分交易记录
-      await supabase.from("point_transactions").insert({
-        user_id: targetUser.id,
-        amount: points,
-        balance_after: newPoints,
-        type: "points_reward",
-        description: `${reason}（活动日期：${dateStr}）`,
-      })
-
-      // 发送通知 - 包含日期信息
-      const notificationContent = `您获得了 ${points} 积分。原因：${reason}（活动日期：${dateStr}）。当前积分：${newPoints}`
-
-      await supabase.from("notifications").insert({
-        user_id: targetUser.id,
-        type: "points_reward",
-        category: "system",
-        title: "积分奖励",
-        content: notificationContent,
-        priority: "normal",
-      })
-
-      return { userId: targetUser.id, success: true }
     })
 
     const results = await Promise.all(updatePromises)

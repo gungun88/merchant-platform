@@ -15,9 +15,13 @@ SELECT pg_get_functiondef('public.handle_new_user()'::regprocedure);
 -- 3. 检查 user_number_seq 序列是否存在
 SELECT
   sequence_name,
-  last_value
+  start_value,
+  increment
 FROM information_schema.sequences
 WHERE sequence_name = 'user_number_seq';
+
+-- 3.1 获取序列的当前值
+SELECT last_value FROM user_number_seq;
 
 -- 4. 手动测试：为 0s7lu 用户补充数据
 DO $$
