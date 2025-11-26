@@ -387,7 +387,13 @@ export default function UsersPage() {
 
     try {
       setProcessing(true)
-      const result = await batchTransferPointsAction(points, batchTransferReason, batchTransferTargetRole, batchTransferDate)
+      // 确保传递的是本地时间的 Date 对象
+      const localDate = new Date(batchTransferDate)
+      console.log('[批量转账] 选择的日期时间:', localDate.toString())
+      console.log('[批量转账] ISO 时间:', localDate.toISOString())
+      console.log('[批量转账] 当前时间:', new Date().toString())
+
+      const result = await batchTransferPointsAction(points, batchTransferReason, batchTransferTargetRole, localDate)
 
       if (!result.success) {
         throw new Error(result.error)
