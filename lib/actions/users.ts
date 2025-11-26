@@ -528,9 +528,10 @@ export async function batchTransferPoints(points: number, reason: string, target
     console.log('[批量转账] 时间差(秒):', (scheduledTime.getTime() - now.getTime()) / 1000)
 
     // 判断是立即执行还是定时执行
-    // 如果选择的时间在当前时间之后超过1分钟，则创建定时任务
+    // 如果选择的时间在当前时间之后超过2分钟，则创建定时任务
+    // ⚠️ 改为 2 分钟阈值以容忍服务器时间偏差
     const timeDiffMs = scheduledTime.getTime() - now.getTime()
-    const isScheduled = timeDiffMs > 60000
+    const isScheduled = timeDiffMs > 120000  // 从 60000 改为 120000 (2分钟)
 
     console.log('[批量转账] 时间差(ms):', timeDiffMs, '是否定时:', isScheduled)
 
