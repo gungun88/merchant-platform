@@ -29,7 +29,7 @@ BEGIN
     WHERE p.role = 'user'  -- 只处理普通用户，不处理管理员
   LOOP
     -- 计算该用户的正确积分（根据交易记录）
-    SELECT COALESCE(SUM(points), 0) INTO v_calculated_points
+    SELECT COALESCE(SUM(amount), 0) INTO v_calculated_points
     FROM point_transactions
     WHERE user_id = v_user.id;
 
