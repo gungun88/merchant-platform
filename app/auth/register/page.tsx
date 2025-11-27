@@ -15,6 +15,7 @@ import { useState, useEffect } from "react"
 import { validateInvitationCode, processInvitationReward } from "@/lib/actions/invitation"
 import { validateEmailAction } from "@/lib/actions/email-validation"
 import { getSystemSettings } from "@/lib/actions/settings"
+import { createUserProfile } from "@/lib/actions/profile"
 import { toast } from "sonner"
 
 export default function RegisterPage() {
@@ -221,8 +222,30 @@ export default function RegisterPage() {
       })
       if (error) throw error
 
+      // 关键修复: 手动创建 profile (因为数据库触发器不可靠)
+      if (data.user) {
+        console.log("注册成功，开始创建 profile...")
+
+        const profileResult = await createUserProfile({
+          userId: data.user.id,
+          username: username,
+          email: email,
+          createdAt: data.user.created_at,
+        })
+
+        if (!profileResult.success) {
+          console.error("创建 profile 失败:", profileResult.error)
+          // 虽然 auth 用户创建成功了，但 profile 创建失败
+          // 记录错误但不阻断流程，用户仍然可以登录
+          // 后续可以通过修复脚本补充 profile
+          toast.error("用户资料创建失败，请联系管理员")
+        } else {
+          console.log("Profile 创建成功:", profileResult)
+        }
+      }
+
       // 如果注册成功且有有效的邀请码,处理邀请奖励
-      console.log("注册成功，检查邀请码:", {
+      console.log("检查邀请码:", {
         hasUser: !!data.user,
         invitationCode,
         invitationValid: invitationValid?.valid,

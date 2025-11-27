@@ -7,6 +7,168 @@ import { sanitizeText, sanitizeURL } from "@/lib/utils/sanitize"
 import { filterSupabaseError, logSecurityEvent } from "@/lib/utils/security-filter"
 
 /**
+ * 为新注册用户创建 profile
+ * 注意: 由于数据库触发器无法可靠工作,改用应用层方案
+ */
+export async function createUserProfile(data: {
+  userId: string
+  username?: string
+  email: string
+  createdAt?: string
+}) {
+  try {
+    const supabase = await createClient()
+
+    // 检查 profile 是否已存在 (幂等性保证)
+    const { data: existingProfile } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("id", data.userId)
+      .maybeSingle()
+
+    if (existingProfile) {
+      console.log(`Profile already exists for user ${data.userId}`)
+      return {
+        success: true,
+        message: "Profile already exists",
+        alreadyExists: true,
+      }
+    }
+
+    // 获取系统设置
+    const settingsResult = await getSystemSettings()
+    const registerPoints = settingsResult.data?.register_points || 100
+
+    // 获取下一个用户编号
+    const { data: maxUserNumber } = await supabase
+      .from("profiles")
+      .select("user_number")
+      .order("user_number", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    const nextUserNumber = maxUserNumber?.user_number ? maxUserNumber.user_number + 1 : 100001
+
+    // 生成邀请码
+    const { data: invitationCode, error: codeError } = await supabase.rpc(
+      "generate_invitation_code"
+    )
+
+    if (codeError) {
+      console.error("Failed to generate invitation code:", codeError)
+      // 如果生成失败,使用备用方案
+      const fallbackCode = `U${Date.now().toString(36).toUpperCase().slice(-6)}`
+      console.log("Using fallback invitation code:", fallbackCode)
+    }
+
+    const finalInvitationCode = invitationCode || `U${Date.now().toString(36).toUpperCase().slice(-6)}`
+
+    // 清理用户名
+    const sanitizedUsername = data.username
+      ? sanitizeText(data.username)
+      : data.email.split("@")[0]
+
+    // 创建 profile
+    const { data: newProfile, error: profileError } = await supabase
+      .from("profiles")
+      .insert({
+        id: data.userId,
+        username: sanitizedUsername,
+        email: data.email,
+        user_number: nextUserNumber,
+        invitation_code: finalInvitationCode,
+        points: registerPoints,
+        role: "user",
+        is_merchant: false,
+        consecutive_checkin_days: 0,
+        report_count: 0,
+        is_banned: false,
+        login_failed_attempts: 0,
+        created_at: data.createdAt || new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .select()
+      .single()
+
+    if (profileError) {
+      console.error("Failed to create profile:", profileError)
+      const safeError = filterSupabaseError(profileError)
+      logSecurityEvent("error", "创建用户profile失败", {
+        error: safeError,
+        userId: data.userId,
+      })
+      return {
+        success: false,
+        error: "创建用户资料失败",
+      }
+    }
+
+    // 记录注册积分
+    try {
+      const { error: pointError } = await supabase.rpc("record_point_transaction", {
+        p_user_id: data.userId,
+        p_amount: registerPoints,
+        p_type: "registration",
+        p_description: `注册赠送积分 +${registerPoints}积分`,
+        p_related_user_id: null,
+        p_related_merchant_id: null,
+        p_metadata: { source: "registration" },
+      })
+
+      if (pointError) {
+        console.error("Failed to record registration points:", pointError)
+        // 不阻断流程,只记录错误
+      }
+    } catch (err) {
+      console.error("Error recording points:", err)
+    }
+
+    // 发送欢迎通知
+    try {
+      const { error: notifError } = await supabase.rpc("create_notification", {
+        p_user_id: data.userId,
+        p_type: "system",
+        p_category: "registration",
+        p_title: "欢迎加入",
+        p_content: `注册成功！您已获得 ${registerPoints} 积分奖励，快去体验吧！`,
+        p_link_type: null,
+        p_link_id: null,
+        p_metadata: { points: registerPoints },
+        p_priority: "normal",
+        p_expires_at: null,
+      })
+
+      if (notifError) {
+        console.error("Failed to send welcome notification:", notifError)
+        // 不阻断流程,只记录错误
+      }
+    } catch (err) {
+      console.error("Error sending notification:", err)
+    }
+
+    console.log(`Profile created successfully for user ${data.userId}`)
+
+    return {
+      success: true,
+      profile: newProfile,
+      userNumber: nextUserNumber,
+      invitationCode: finalInvitationCode,
+      registerPoints,
+    }
+  } catch (error) {
+    console.error("Error creating user profile:", error)
+    logSecurityEvent("error", "创建用户profile异常", {
+      error: error instanceof Error ? error.message : "Unknown error",
+      userId: data.userId,
+    })
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "创建用户资料失败",
+    }
+  }
+}
+
+/**
  * 更新用户资料
  */
 export async function updateProfile(data: {

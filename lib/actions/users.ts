@@ -872,33 +872,25 @@ export async function createUser(data: CreateUserData) {
       return { success: false, error: "创建用户失败" }
     }
 
-    // 等待触发器自动创建 profile(触发器已修复并重新启用)
-    console.log("Waiting for trigger to create profile...")
+    // 手动创建 profile (不依赖触发器)
+    console.log("Creating profile manually...")
 
-    // 等待最多3秒,让触发器完成 profile 创建
-    let profileCreated = false
-    for (let i = 0; i < 6; i++) {
-      await new Promise(resolve => setTimeout(resolve, 500))
+    const { createUserProfile } = await import("./profile")
+    const profileResult = await createUserProfile({
+      userId: authData.user.id,
+      username: data.username,
+      email: data.email,
+      createdAt: authData.user.created_at,
+    })
 
-      const { data: profile } = await adminSupabase
-        .from("profiles")
-        .select("id")
-        .eq("id", authData.user.id)
-        .single()
-
-      if (profile) {
-        profileCreated = true
-        console.log("Profile created by trigger successfully")
-        break
-      }
-    }
-
-    if (!profileCreated) {
-      console.error("Trigger failed to create profile")
-      // 如果触发器失败,删除刚创建的 auth 用户
+    if (!profileResult.success) {
+      console.error("Failed to create profile:", profileResult.error)
+      // 如果 profile 创建失败,删除刚创建的 auth 用户
       await adminSupabase.auth.admin.deleteUser(authData.user.id)
-      return { success: false, error: "用户资料创建失败,请联系管理员检查数据库触发器" }
+      return { success: false, error: `用户资料创建失败: ${profileResult.error}` }
     }
+
+    console.log("Profile created successfully:", profileResult)
 
     revalidatePath("/admin/users")
     return {
