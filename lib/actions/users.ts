@@ -1350,52 +1350,68 @@ export async function deleteUserAccount(userId: string, userEmail: string) {
       deletedCount++
     }
 
-    // 7. 删除签到记录
-    const { error: e7 } = await adminClient
-      .from("checkins")
-      .delete()
-      .eq("user_id", userId)
-    if (e7) {
-      console.error("删除签到记录失败:", e7)
-      errors.push("签到记录")
-    } else {
-      deletedCount++
+    // 7. 删除签到记录（如果表存在）
+    try {
+      const { error: e7 } = await adminClient
+        .from("checkins")
+        .delete()
+        .eq("user_id", userId)
+      if (e7 && !e7.message?.includes("does not exist")) {
+        console.error("删除签到记录失败:", e7)
+        errors.push("签到记录")
+      } else if (!e7) {
+        deletedCount++
+      }
+    } catch (err) {
+      console.log("签到记录表不存在，跳过")
     }
 
-    // 8. 删除查看联系方式记录
-    const { error: e8 } = await adminClient
-      .from("contact_views")
-      .delete()
-      .eq("user_id", userId)
-    if (e8) {
-      console.error("删除查看联系方式记录失败:", e8)
-      errors.push("查看联系方式记录")
-    } else {
-      deletedCount++
+    // 8. 删除查看联系方式记录（如果表存在）
+    try {
+      const { error: e8 } = await adminClient
+        .from("contact_views")
+        .delete()
+        .eq("user_id", userId)
+      if (e8 && !e8.message?.includes("does not exist")) {
+        console.error("删除查看联系方式记录失败:", e8)
+        errors.push("查看联系方式记录")
+      } else if (!e8) {
+        deletedCount++
+      }
+    } catch (err) {
+      console.log("查看联系方式记录表不存在，跳过")
     }
 
-    // 9. 删除押金商家申请
-    const { error: e9 } = await adminClient
-      .from("deposit_merchant_applications")
-      .delete()
-      .eq("user_id", userId)
-    if (e9) {
-      console.error("删除押金商家申请失败:", e9)
-      errors.push("押金商家申请")
-    } else {
-      deletedCount++
+    // 9. 删除押金商家申请（如果表存在）
+    try {
+      const { error: e9 } = await adminClient
+        .from("deposit_merchant_applications")
+        .delete()
+        .eq("user_id", userId)
+      if (e9 && !e9.message?.includes("does not exist")) {
+        console.error("删除押金商家申请失败:", e9)
+        errors.push("押金商家申请")
+      } else if (!e9) {
+        deletedCount++
+      }
+    } catch (err) {
+      console.log("押金商家申请表不存在，跳过")
     }
 
-    // 10. 删除押金商家记录
-    const { error: e10 } = await adminClient
-      .from("deposit_merchants")
-      .delete()
-      .eq("user_id", userId)
-    if (e10) {
-      console.error("删除押金商家记录失败:", e10)
-      errors.push("押金商家记录")
-    } else {
-      deletedCount++
+    // 10. 删除押金商家记录（如果表存在）
+    try {
+      const { error: e10 } = await adminClient
+        .from("deposit_merchants")
+        .delete()
+        .eq("user_id", userId)
+      if (e10 && !e10.message?.includes("does not exist")) {
+        console.error("删除押金商家记录失败:", e10)
+        errors.push("押金商家记录")
+      } else if (!e10) {
+        deletedCount++
+      }
+    } catch (err) {
+      console.log("押金商家记录表不存在，跳过")
     }
 
     // 11. 删除内测码使用记录
