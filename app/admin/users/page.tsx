@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { cn } from "@/lib/utils"
 import { AdminLayout } from "@/components/admin-layout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -17,12 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Calendar } from "@/components/ui/calendar"
 import { Checkbox } from "@/components/ui/checkbox"
-import { CalendarIcon } from "lucide-react"
-import { format } from "date-fns"
-import { zhCN } from "date-fns/locale"
 import {
   Table,
   TableBody,
@@ -114,6 +108,7 @@ export default function UsersPage() {
   // 批量转账表单状态
   const [batchTransferPoints, setBatchTransferPoints] = useState("")
   const [batchTransferReason, setBatchTransferReason] = useState("")
+  const [batchTransferTargetRole, setBatchTransferTargetRole] = useState("all")
 
   // 批量修改表单状态
   const [batchUpdateUsernamePrefix, setBatchUpdateUsernamePrefix] = useState("")
@@ -125,8 +120,6 @@ export default function UsersPage() {
   const [batchUpdateFindText, setBatchUpdateFindText] = useState("")
   const [batchUpdateReplaceText, setBatchUpdateReplaceText] = useState("")
   const [batchUpdateFilterKeyword, setBatchUpdateFilterKeyword] = useState("")
-  const [batchTransferTargetRole, setBatchTransferTargetRole] = useState("all")
-  const [batchTransferDate, setBatchTransferDate] = useState<Date | undefined>(new Date())
 
   // 加载用户数据
   useEffect(() => {
@@ -363,7 +356,6 @@ export default function UsersPage() {
     setBatchTransferPoints("")
     setBatchTransferReason("")
     setBatchTransferTargetRole("all")
-    setBatchTransferDate(new Date())
     setBatchTransferDialogOpen(true)
   }
 
@@ -380,20 +372,9 @@ export default function UsersPage() {
       return
     }
 
-    if (!batchTransferDate) {
-      toast.error("请选择活动日期")
-      return
-    }
-
     try {
       setProcessing(true)
-      // 确保传递的是本地时间的 Date 对象
-      const localDate = new Date(batchTransferDate)
-      console.log('[批量转账] 选择的日期时间:', localDate.toString())
-      console.log('[批量转账] ISO 时间:', localDate.toISOString())
-      console.log('[批量转账] 当前时间:', new Date().toString())
-
-      const result = await batchTransferPointsAction(points, batchTransferReason, batchTransferTargetRole, localDate)
+      const result = await batchTransferPointsAction(points, batchTransferReason, batchTransferTargetRole)
 
       if (!result.success) {
         throw new Error(result.error)
@@ -404,7 +385,6 @@ export default function UsersPage() {
       setBatchTransferPoints("")
       setBatchTransferReason("")
       setBatchTransferTargetRole("all")
-      setBatchTransferDate(new Date())
       router.refresh()
       await loadUsers()
     } catch (error: any) {
@@ -1264,7 +1244,7 @@ export default function UsersPage() {
           <DialogHeader>
             <DialogTitle>批量转账积分</DialogTitle>
             <DialogDescription>
-              给所有符合条件的用户批量发放积分，适用于平台活动日或纪念日奖励
+              给所有符合条件的用户批量发放积分，立即执行转账
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -1284,78 +1264,6 @@ export default function UsersPage() {
               </Select>
               <p className="text-xs text-muted-foreground">
                 选择要发放积分的用户群体
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="batch-transfer-date">
-                活动日期 <span className="text-red-500">*</span>
-              </Label>
-              <div className="flex gap-2">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      id="batch-transfer-date"
-                      variant="outline"
-                      className={cn(
-                        "flex-1 justify-start text-left font-normal",
-                        !batchTransferDate && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {batchTransferDate ? (
-                        format(batchTransferDate, "yyyy年MM月dd日", { locale: zhCN })
-                      ) : (
-                        <span>选择日期</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={batchTransferDate}
-                      onSelect={setBatchTransferDate}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-                <div className="flex gap-1 items-center">
-                  <Input
-                    type="number"
-                    min="0"
-                    max="23"
-                    placeholder="时"
-                    value={batchTransferDate ? batchTransferDate.getHours() : 0}
-                    onChange={(e) => {
-                      const hours = parseInt(e.target.value) || 0
-                      if (batchTransferDate) {
-                        const newDate = new Date(batchTransferDate)
-                        newDate.setHours(Math.min(23, Math.max(0, hours)))
-                        setBatchTransferDate(newDate)
-                      }
-                    }}
-                    className="w-16 text-center"
-                  />
-                  <span className="text-muted-foreground">:</span>
-                  <Input
-                    type="number"
-                    min="0"
-                    max="59"
-                    placeholder="分"
-                    value={batchTransferDate ? batchTransferDate.getMinutes() : 0}
-                    onChange={(e) => {
-                      const minutes = parseInt(e.target.value) || 0
-                      if (batchTransferDate) {
-                        const newDate = new Date(batchTransferDate)
-                        newDate.setMinutes(Math.min(59, Math.max(0, minutes)))
-                        setBatchTransferDate(newDate)
-                      }
-                    }}
-                    className="w-16 text-center"
-                  />
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                选择此次积分发放对应的活动日期或纪念日
               </p>
             </div>
             <div className="space-y-2">
@@ -1388,7 +1296,7 @@ export default function UsersPage() {
                 required
               />
             </div>
-            {batchTransferPoints && !isNaN(parseInt(batchTransferPoints)) && parseInt(batchTransferPoints) > 0 && batchTransferDate && (
+            {batchTransferPoints && !isNaN(parseInt(batchTransferPoints)) && parseInt(batchTransferPoints) > 0 && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <p className="text-sm text-blue-900">
                   <span className="font-semibold">预计影响：</span>
@@ -1403,17 +1311,9 @@ export default function UsersPage() {
                   （排除管理员和已封禁用户）发放{" "}
                   <span className="font-bold text-lg">{batchTransferPoints}</span> 积分。
                   <br />
-                  活动日期：<span className="font-bold">{format(batchTransferDate, "yyyy年MM月dd日 HH:mm", { locale: zhCN })}</span>
-                  <br />
-                  {batchTransferDate.getTime() > new Date().getTime() + 60000 ? (
-                    <span className="text-orange-700 font-medium">
-                      ⏰ 将在指定时间自动执行（定时任务）
-                    </span>
-                  ) : (
-                    <span className="text-green-700 font-medium">
-                      ⚡ 确认后立即执行
-                    </span>
-                  )}
+                  <span className="text-green-700 font-medium">
+                    ⚡ 确认后立即执行
+                  </span>
                   <br />
                   所有用户将收到系统通知。
                 </p>
@@ -1435,8 +1335,7 @@ export default function UsersPage() {
                 !batchTransferPoints ||
                 isNaN(parseInt(batchTransferPoints)) ||
                 parseInt(batchTransferPoints) <= 0 ||
-                !batchTransferReason.trim() ||
-                !batchTransferDate
+                !batchTransferReason.trim()
               }
               className="bg-blue-600 hover:bg-blue-700"
             >

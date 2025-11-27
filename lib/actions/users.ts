@@ -477,9 +477,9 @@ export interface CreateUserData {
 
 /**
  * 批量转账积分给所有用户（管理员）
- * 支持立即执行或定时执行
+ * 实时执行转账
  */
-export async function batchTransferPoints(points: number, reason: string, targetRole?: string, activityDate?: Date) {
+export async function batchTransferPoints(points: number, reason: string, targetRole?: string) {
   const supabase = await createClient()
 
   const {
@@ -513,74 +513,7 @@ export async function batchTransferPoints(points: number, reason: string, target
     return { success: false, error: "批量转账只能增加积分，不能扣除" }
   }
 
-  if (!activityDate) {
-    return { success: false, error: "请选择活动日期" }
-  }
-
   try {
-    const scheduledTime = new Date(activityDate)
-    const now = new Date()
-
-    // 调试日志
-    console.log('[批量转账] 接收到的活动日期:', activityDate)
-    console.log('[批量转账] scheduledTime:', scheduledTime.toString(), '时间戳:', scheduledTime.getTime())
-    console.log('[批量转账] now:', now.toString(), '时间戳:', now.getTime())
-    console.log('[批量转账] 时间差(秒):', (scheduledTime.getTime() - now.getTime()) / 1000)
-
-    // 判断是立即执行还是定时执行
-    // 如果选择的时间在当前时间之后超过2分钟，则创建定时任务
-    // ⚠️ 如果时间差为负数或小于2分钟,都视为立即执行
-    const timeDiffMs = scheduledTime.getTime() - now.getTime()
-    const isScheduled = timeDiffMs > 120000  // 必须超过2分钟才是定时任务
-
-    console.log('[批量转账] 时间差(ms):', timeDiffMs, '时间差(分钟):', timeDiffMs / 60000, '是否定时:', isScheduled)
-
-    // 如果时间差为负数(时间在过去),强制为立即执行
-    if (timeDiffMs < 0) {
-      console.log('[批量转账] ⚠️ 选择的时间在过去,强制立即执行')
-    }
-
-    if (isScheduled) {
-      // 创建定时任务
-      const { data: scheduledTask, error: insertError } = await supabase
-        .from("scheduled_point_transfers")
-        .insert({
-          created_by: user.id,
-          points,
-          reason,
-          target_role: targetRole || "all",
-          scheduled_at: scheduledTime.toISOString(),
-          status: "pending",
-        })
-        .select()
-        .single()
-
-      if (insertError) {
-        console.error("Error creating scheduled task:", insertError)
-        return { success: false, error: insertError.message }
-      }
-
-      // 手动转换为中国时区 (UTC+8)
-      const chinaTime = new Date(scheduledTime.getTime() + 8 * 60 * 60 * 1000)
-      const dateStr = chinaTime.toLocaleString("zh-CN", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        timeZone: "UTC"  // 使用UTC因为我们已经手动加了8小时
-      })
-
-      revalidatePath("/admin/users")
-      return {
-        success: true,
-        scheduled: true,
-        scheduledAt: scheduledTime.toISOString(),
-        message: `已创建定时转账任务，将在 ${dateStr} 自动执行`
-      }
-    }
-
-    // 立即执行转账
     // 获取目标用户列表（排除管理员，排除已封禁用户）
     let query = supabase
       .from("profiles")
@@ -618,16 +551,6 @@ export async function batchTransferPoints(points: number, reason: string, target
       return { success: false, error: "没有找到符合条件的用户" }
     }
 
-    // 格式化活动日期用于通知消息 (明确指定中国时区)
-    const dateStr = scheduledTime.toLocaleString("zh-CN", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone: "Asia/Shanghai"
-    })
-
     // 批量更新用户积分 - 使用 RPC 函数确保事务一致性
     const updatePromises = targetUsers.map(async (targetUser) => {
       try {
@@ -637,12 +560,10 @@ export async function batchTransferPoints(points: number, reason: string, target
           p_user_id: targetUser.id,
           p_amount: points,
           p_type: "points_reward",
-          p_description: `${reason}（活动日期：${dateStr}）`,
+          p_description: reason,
           p_related_user_id: null,
           p_related_merchant_id: null,
           p_metadata: {
-            scheduled_date: scheduledTime.toISOString(),
-            activity_date: dateStr,
             transfer_reason: reason
           }
         })
@@ -655,8 +576,8 @@ export async function batchTransferPoints(points: number, reason: string, target
         // 计算新积分（用于通知）
         const newPoints = (targetUser.points || 0) + points
 
-        // 发送通知 - 包含日期信息
-        const notificationContent = `您获得了 ${points} 积分。原因：${reason}（活动日期：${dateStr}）。当前积分：${newPoints}`
+        // 发送通知
+        const notificationContent = `您获得了 ${points} 积分。原因：${reason}。当前积分：${newPoints}`
 
         await supabase.from("notifications").insert({
           user_id: targetUser.id,
@@ -683,11 +604,10 @@ export async function batchTransferPoints(points: number, reason: string, target
     revalidatePath("/admin/users")
     return {
       success: true,
-      scheduled: false,
       totalUsers: targetUsers.length,
       successCount,
       failCount,
-      message: `立即转账完成：成功给 ${successCount} 位用户转账 ${points} 积分${failCount > 0 ? `，${failCount} 位用户转账失败` : ""}`
+      message: `批量转账完成：成功给 ${successCount} 位用户转账 ${points} 积分${failCount > 0 ? `，${failCount} 位用户转账失败` : ""}`
     }
   } catch (error: any) {
     console.error("Error in batchTransferPoints:", error)
