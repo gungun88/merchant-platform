@@ -1356,14 +1356,22 @@ export async function deleteUserAccount(userId: string, userEmail: string) {
         .from("checkins")
         .delete()
         .eq("user_id", userId)
-      if (e7 && !e7.message?.includes("does not exist")) {
-        console.error("删除签到记录失败:", e7)
-        errors.push("签到记录")
-      } else if (!e7) {
+      if (e7) {
+        // 检查是否是表不存在的错误
+        const isTableNotExist = e7.message?.includes("does not exist") ||
+                                e7.code === 'PGRST204' ||
+                                e7.code === 'PGRST205'
+        if (!isTableNotExist) {
+          console.error("删除签到记录失败:", e7)
+          errors.push("签到记录")
+        } else {
+          console.log("签到记录表不存在，跳过")
+        }
+      } else {
         deletedCount++
       }
     } catch (err) {
-      console.log("签到记录表不存在，跳过")
+      console.log("签到记录表不存在（捕获异常），跳过")
     }
 
     // 8. 删除查看联系方式记录（如果表存在）
@@ -1372,14 +1380,21 @@ export async function deleteUserAccount(userId: string, userEmail: string) {
         .from("contact_views")
         .delete()
         .eq("user_id", userId)
-      if (e8 && !e8.message?.includes("does not exist")) {
-        console.error("删除查看联系方式记录失败:", e8)
-        errors.push("查看联系方式记录")
-      } else if (!e8) {
+      if (e8) {
+        const isTableNotExist = e8.message?.includes("does not exist") ||
+                                e8.code === 'PGRST204' ||
+                                e8.code === 'PGRST205'
+        if (!isTableNotExist) {
+          console.error("删除查看联系方式记录失败:", e8)
+          errors.push("查看联系方式记录")
+        } else {
+          console.log("查看联系方式记录表不存在，跳过")
+        }
+      } else {
         deletedCount++
       }
     } catch (err) {
-      console.log("查看联系方式记录表不存在，跳过")
+      console.log("查看联系方式记录表不存在（捕获异常），跳过")
     }
 
     // 9. 删除押金商家申请（如果表存在）
@@ -1388,14 +1403,21 @@ export async function deleteUserAccount(userId: string, userEmail: string) {
         .from("deposit_merchant_applications")
         .delete()
         .eq("user_id", userId)
-      if (e9 && !e9.message?.includes("does not exist")) {
-        console.error("删除押金商家申请失败:", e9)
-        errors.push("押金商家申请")
-      } else if (!e9) {
+      if (e9) {
+        const isTableNotExist = e9.message?.includes("does not exist") ||
+                                e9.code === 'PGRST204' ||
+                                e9.code === 'PGRST205'
+        if (!isTableNotExist) {
+          console.error("删除押金商家申请失败:", e9)
+          errors.push("押金商家申请")
+        } else {
+          console.log("押金商家申请表不存在，跳过")
+        }
+      } else {
         deletedCount++
       }
     } catch (err) {
-      console.log("押金商家申请表不存在，跳过")
+      console.log("押金商家申请表不存在（捕获异常），跳过")
     }
 
     // 10. 删除押金商家记录（如果表存在）
@@ -1404,14 +1426,21 @@ export async function deleteUserAccount(userId: string, userEmail: string) {
         .from("deposit_merchants")
         .delete()
         .eq("user_id", userId)
-      if (e10 && !e10.message?.includes("does not exist")) {
-        console.error("删除押金商家记录失败:", e10)
-        errors.push("押金商家记录")
-      } else if (!e10) {
+      if (e10) {
+        const isTableNotExist = e10.message?.includes("does not exist") ||
+                                e10.code === 'PGRST204' ||
+                                e10.code === 'PGRST205'
+        if (!isTableNotExist) {
+          console.error("删除押金商家记录失败:", e10)
+          errors.push("押金商家记录")
+        } else {
+          console.log("押金商家记录表不存在，跳过")
+        }
+      } else {
         deletedCount++
       }
     } catch (err) {
-      console.log("押金商家记录表不存在，跳过")
+      console.log("押金商家记录表不存在（捕获异常），跳过")
     }
 
     // 11. 删除内测码使用记录
