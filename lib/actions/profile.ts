@@ -79,7 +79,7 @@ export async function createUserProfile(data: {
         email: data.email,
         user_number: nextUserNumber,
         invitation_code: finalInvitationCode,
-        points: registerPoints,
+        points: 0, // 🔥 修复：初始积分为 0，由 RPC 函数统一管理
         role: "user",
         is_merchant: false,
         consecutive_checkin_days: 0,
