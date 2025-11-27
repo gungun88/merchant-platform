@@ -697,7 +697,9 @@ export default function UsersPage() {
                           </TableCell>
                           {/* 邮箱列 */}
                           <TableCell>
-                            <p className="text-sm">{user.email}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {user.email || "未设置"}
+                            </p>
                           </TableCell>
                           {/* 角色列 */}
                           <TableCell>
@@ -1711,7 +1713,9 @@ export default function UsersPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">邮箱：</span>
-                  <span className="font-medium">{selectedUser.email}</span>
+                  <span className="font-medium text-muted-foreground">
+                    {selectedUser.email || "未设置"}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">用户编号：</span>
