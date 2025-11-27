@@ -423,11 +423,17 @@ export async function detectSensitiveWords(text: string) {
   const supabase = await createClient()
 
   try {
-    const { data: settings } = await supabase
+    const { data: settings, error } = await supabase
       .from("system_settings")
       .select("sensitive_words")
       .eq("id", "00000000-0000-0000-0000-000000000001")
       .single()
+
+    if (error) {
+      console.error("获取敏感词列表失败:", error)
+      // 如果获取失败,返回空结果而不是抛出错误
+      return { success: false, detected: [], found: false }
+    }
 
     const sensitiveWords = (settings?.sensitive_words as string[]) || []
 
@@ -444,7 +450,9 @@ export async function detectSensitiveWords(text: string) {
       found: detectedWords.length > 0,
     }
   } catch (error: any) {
-    return { success: false, error: error.message, detected: [], found: false }
+    console.error("敏感词检测异常:", error)
+    // 捕获所有异常,返回空结果而不是抛出错误
+    return { success: false, detected: [], found: false }
   }
 }
 

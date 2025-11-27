@@ -100,15 +100,34 @@ export default function MerchantRegisterPage() {
       return
     }
 
+    if (!logoUrl) {
+      toast.error("请上传商家Logo")
+      return
+    }
+
     if (!formData.description || formData.description.length > 100) {
       toast.error("详情描述必填，且不超过100个字符")
       return
     }
 
-    // 检测敏感词
-    const sensitiveCheck = await detectSensitiveWords(formData.description)
-    if (sensitiveCheck.found) {
-      toast.error(`描述中包含敏感词：${sensitiveCheck.detected.join("、")}，请修改后重试`)
+    // 检测敏感词（严格模式：检测失败也阻止提交）
+    try {
+      const sensitiveCheck = await detectSensitiveWords(formData.description)
+
+      // 检测功能本身出错
+      if (!sensitiveCheck.success) {
+        toast.error("敏感词检测服务异常，请稍后重试")
+        return
+      }
+
+      // 检测到敏感词
+      if (sensitiveCheck.found) {
+        toast.error(`描述中包含敏感词：${sensitiveCheck.detected.join("、")}，请修改后重试`)
+        return
+      }
+    } catch (error) {
+      console.error("敏感词检测失败:", error)
+      toast.error("敏感词检测服务异常，请稍后重试")
       return
     }
 
@@ -163,7 +182,9 @@ export default function MerchantRegisterPage() {
 
       router.push("/")
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "入驻失败")
+      console.error("商家入驻失败:", error)
+      const errorMessage = error instanceof Error ? error.message : "入驻失败"
+      toast.error(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -245,13 +266,16 @@ export default function MerchantRegisterPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>商家Logo</Label>
+                  <Label>
+                    商家Logo <span className="text-red-500">*</span>
+                  </Label>
                   <ImageUpload
                     currentImage={logoUrl}
                     onImageChange={setLogoUrl}
                     folder="merchant-logos"
                     fallbackText={formData.name || "商"}
                   />
+                  <p className="text-xs text-muted-foreground">必须上传商家Logo，支持 JPG、PNG、GIF 格式，大小不超过 2MB</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

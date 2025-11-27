@@ -63,10 +63,10 @@ export async function createMerchant(formData: {
     location: formData.location ? sanitizeText(formData.location) : null,
     price_range: formData.price_range ? sanitizeText(formData.price_range) : null,
     stock_status: formData.stock_status ? sanitizeText(formData.stock_status) : "现货充足",
-    service_types: formData.service_types.map(t => sanitizeText(t)),
-    certifications: formData.certifications.map(c => sanitizeText(c)),
-    warranties: formData.warranties.map(w => sanitizeText(w)),
-    payment_methods: formData.payment_methods.map(p => sanitizeText(p)),
+    service_types: Array.isArray(formData.service_types) ? formData.service_types.map(t => sanitizeText(t)) : [],
+    certifications: Array.isArray(formData.certifications) ? formData.certifications.map(c => sanitizeText(c)) : [],
+    warranties: Array.isArray(formData.warranties) ? formData.warranties.map(w => sanitizeText(w)) : [],
+    payment_methods: Array.isArray(formData.payment_methods) ? formData.payment_methods.map(p => sanitizeText(p)) : [],
   }
 
   // 创建商家（立即显示在前台，未认证状态）
