@@ -224,14 +224,78 @@ export async function processInvitationReward(invitationCode: string, inviteeId:
     return null
   }
 
-  // 如果是内测码，只需要标记为已使用即可
+  // 如果是内测码，标记为已使用并给予邀请奖励
   if (validationResult.type === 'beta') {
-    console.log("[服务端] 检测到内测码，标记为已使用")
+    console.log("[服务端] 检测到内测码，标记为已使用并发放邀请奖励")
     const { useBetaCode } = await import("./beta-codes")
     const result = await useBetaCode(invitationCode, inviteeId)
 
     if (result.success) {
-      console.log("[服务端] 内测码使用成功")
+      console.log("[服务端] 内测码使用成功，开始发放邀请奖励")
+
+      // 等待被邀请人的 profile 创建完成（最多等待5秒）
+      let inviteeProfile = null
+      for (let i = 0; i < 10; i++) {
+        const { data } = await supabase
+          .from("profiles")
+          .select("id, points")
+          .eq("id", inviteeId)
+          .maybeSingle()
+
+        console.log(`[服务端] 第${i + 1}次查询被邀请人 profile:`, data)
+
+        if (data) {
+          inviteeProfile = data
+          break
+        }
+
+        // 等待500ms后重试
+        await new Promise(resolve => setTimeout(resolve, 500))
+      }
+
+      if (!inviteeProfile) {
+        console.error("[服务端] 被邀请人的 profile 尚未创建，跳过奖励发放")
+        return {
+          success: true,
+          type: 'beta',
+          invitee_id: inviteeId,
+        }
+      }
+
+      // 获取系统设置的邀请奖励积分
+      const settingsResult = await getSystemSettings()
+      const invitationPoints = settingsResult.data?.invitation_points || 100
+      console.log(`[服务端] 邀请奖励积分配置: ${invitationPoints}`)
+
+      try {
+        // 给被邀请人增加积分（使用内测码的奖励）
+        console.log(`[服务端] 给被邀请人增加${invitationPoints}积分`)
+        await addPointsLog(
+          inviteeId,
+          invitationPoints,
+          "invited_reward",
+          `通过内测邀请码注册奖励 +${invitationPoints}积分`,
+          null  // 内测码没有具体的邀请人
+        )
+        console.log("[服务端] 被邀请人积分更新成功")
+
+        // 发送通知给被邀请人
+        console.log("[服务端] 发送通知给被邀请人")
+        await createNotification({
+          userId: inviteeId,
+          type: "transaction",
+          category: "invited_reward",
+          title: "注册奖励",
+          content: `欢迎加入!通过内测邀请码注册,获得 ${invitationPoints} 积分奖励!`,
+          relatedUserId: null,
+          metadata: { points: invitationPoints, codeType: 'beta' },
+        })
+        console.log("[服务端] 被邀请人通知创建成功")
+      } catch (error) {
+        console.error("[服务端] 发放内测码邀请奖励失败:", error)
+        // 不影响内测码使用成功的状态
+      }
+
       return {
         success: true,
         type: 'beta',
