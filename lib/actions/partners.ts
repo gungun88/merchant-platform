@@ -628,18 +628,32 @@ export async function getUserEmails(userIds: string[]) {
       }
     )
 
-    // 获取用户邮箱
-    const { data: { users }, error: usersError } = await supabaseAdmin.auth.admin.listUsers()
+    // 获取用户邮箱 (支持分页,获取所有用户)
+    let allUsers: any[] = []
+    let page = 1
+    const perPage = 1000
+    let hasMore = true
 
-    if (usersError) {
-      console.error("Error fetching users:", usersError)
-      return { success: false, error: "获取用户信息失败" }
+    while (hasMore) {
+      const { data: { users }, error: usersError } = await supabaseAdmin.auth.admin.listUsers({
+        page,
+        perPage
+      })
+
+      if (usersError) {
+        console.error("Error fetching users:", usersError)
+        return { success: false, error: "获取用户信息失败" }
+      }
+
+      allUsers = allUsers.concat(users)
+      hasMore = users.length === perPage
+      page++
     }
 
     // 创建邮箱映射
     const emailMap: Record<string, string> = {}
-    if (users) {
-      users.forEach(u => {
+    if (allUsers) {
+      allUsers.forEach(u => {
         if (userIds.includes(u.id) && u.email) {
           emailMap[u.id] = u.email
         }
