@@ -1237,3 +1237,239 @@ export async function updateUserInvitationLimit(userId: string, maxInvitations: 
   }
 }
 
+/**
+ * 删除用户账户及所有相关数据（销号）
+ */
+export async function deleteUserAccount(userId: string, userEmail: string) {
+  const supabase = await createClient()
+  const adminClient = createAdminClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { success: false, error: "未登录" }
+  }
+
+  // 验证管理员权限
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single()
+
+  if (!profile || profile.role !== "admin") {
+    return { success: false, error: "无权限操作" }
+  }
+
+  // 不允许删除管理员账户
+  const { data: targetProfile } = await supabase
+    .from("profiles")
+    .select("role, username")
+    .eq("id", userId)
+    .single()
+
+  if (targetProfile?.role === "admin") {
+    return { success: false, error: "不允许删除管理员账户" }
+  }
+
+  try {
+    let deletedCount = 0
+    const errors: string[] = []
+
+    // 1. 删除积分交易记录
+    const { error: e1 } = await adminClient
+      .from("point_transactions")
+      .delete()
+      .eq("user_id", userId)
+    if (e1) {
+      console.error("删除积分交易记录失败:", e1)
+      errors.push("积分交易记录")
+    } else {
+      deletedCount++
+    }
+
+    // 2. 删除旧积分记录
+    const { error: e2 } = await adminClient
+      .from("points_log")
+      .delete()
+      .eq("user_id", userId)
+    if (e2) {
+      console.error("删除旧积分记录失败:", e2)
+      errors.push("旧积分记录")
+    } else {
+      deletedCount++
+    }
+
+    // 3. 删除通知
+    const { error: e3 } = await adminClient
+      .from("notifications")
+      .delete()
+      .eq("user_id", userId)
+    if (e3) {
+      console.error("删除通知失败:", e3)
+      errors.push("通知")
+    } else {
+      deletedCount++
+    }
+
+    // 4. 删除邀请记录（作为邀请人）
+    const { error: e4 } = await adminClient
+      .from("invitations")
+      .delete()
+      .eq("inviter_id", userId)
+    if (e4) {
+      console.error("删除邀请记录（邀请人）失败:", e4)
+      errors.push("邀请记录（邀请人）")
+    } else {
+      deletedCount++
+    }
+
+    // 5. 删除邀请记录（作为被邀请人）
+    const { error: e5 } = await adminClient
+      .from("invitations")
+      .delete()
+      .eq("invitee_id", userId)
+    if (e5) {
+      console.error("删除邀请记录（被邀请人）失败:", e5)
+      errors.push("邀请记录（被邀请人）")
+    } else {
+      deletedCount++
+    }
+
+    // 6. 删除收藏记录
+    const { error: e6 } = await adminClient
+      .from("favorites")
+      .delete()
+      .eq("user_id", userId)
+    if (e6) {
+      console.error("删除收藏记录失败:", e6)
+      errors.push("收藏记录")
+    } else {
+      deletedCount++
+    }
+
+    // 7. 删除签到记录
+    const { error: e7 } = await adminClient
+      .from("checkins")
+      .delete()
+      .eq("user_id", userId)
+    if (e7) {
+      console.error("删除签到记录失败:", e7)
+      errors.push("签到记录")
+    } else {
+      deletedCount++
+    }
+
+    // 8. 删除查看联系方式记录
+    const { error: e8 } = await adminClient
+      .from("contact_views")
+      .delete()
+      .eq("user_id", userId)
+    if (e8) {
+      console.error("删除查看联系方式记录失败:", e8)
+      errors.push("查看联系方式记录")
+    } else {
+      deletedCount++
+    }
+
+    // 9. 删除押金商家申请
+    const { error: e9 } = await adminClient
+      .from("deposit_merchant_applications")
+      .delete()
+      .eq("user_id", userId)
+    if (e9) {
+      console.error("删除押金商家申请失败:", e9)
+      errors.push("押金商家申请")
+    } else {
+      deletedCount++
+    }
+
+    // 10. 删除押金商家记录
+    const { error: e10 } = await adminClient
+      .from("deposit_merchants")
+      .delete()
+      .eq("user_id", userId)
+    if (e10) {
+      console.error("删除押金商家记录失败:", e10)
+      errors.push("押金商家记录")
+    } else {
+      deletedCount++
+    }
+
+    // 11. 删除内测码使用记录
+    const { error: e12 } = await adminClient
+      .from("beta_code_usages")
+      .delete()
+      .eq("user_id", userId)
+    if (e12) {
+      console.error("删除内测码使用记录失败:", e12)
+      errors.push("内测码使用记录")
+    } else {
+      deletedCount++
+    }
+
+    // 12. 删除商家信息（会级联删除相关数据）
+    const { error: e13 } = await adminClient
+      .from("merchants")
+      .delete()
+      .eq("user_id", userId)
+    if (e13) {
+      console.error("删除商家信息失败:", e13)
+      errors.push("商家信息")
+    } else {
+      deletedCount++
+    }
+
+    // 13. 删除 profile
+    const { error: e14 } = await adminClient
+      .from("profiles")
+      .delete()
+      .eq("id", userId)
+    if (e14) {
+      console.error("删除 profile 失败:", e14)
+      errors.push("用户档案")
+    } else {
+      deletedCount++
+    }
+
+    // 14. 最后删除 auth 用户
+    const { error: e15 } = await adminClient.auth.admin.deleteUser(userId)
+    if (e15) {
+      console.error("删除 auth 用户失败:", e15)
+      errors.push("认证信息")
+    } else {
+      deletedCount++
+    }
+
+    if (errors.length > 0) {
+      return {
+        success: false,
+        error: `删除部分数据失败: ${errors.join("、")}`,
+        deletedCount,
+      }
+    }
+
+    // 记录删除操作日志
+    const { createAdminLog } = await import("./admin-log")
+    await createAdminLog({
+      actionType: "user_delete",
+      targetType: "user",
+      targetId: userId,
+      description: `删除用户账户: ${targetProfile?.username || "unknown"} (${userEmail})`,
+      oldData: { userId, email: userEmail, username: targetProfile?.username },
+    })
+
+    revalidatePath("/admin/users")
+    return {
+      success: true,
+      message: `用户账户已成功删除（共处理 ${deletedCount} 项操作）`,
+      deletedCount,
+    }
+  } catch (error: any) {
+    console.error("Error in deleteUserAccount:", error)
+    return { success: false, error: error.message }
+  }
+}
+

@@ -46,6 +46,7 @@ import {
   User,
   UserPlus,
   Send,
+  Trash2,
 } from "lucide-react"
 import { toast } from "sonner"
 import {
@@ -56,6 +57,7 @@ import {
   adjustUserPoints,
   createUser,
   batchTransferPoints as batchTransferPointsAction,
+  deleteUserAccount,
   type UserProfile,
   type UserStats,
   type CreateUserData,
@@ -90,6 +92,7 @@ export default function UsersPage() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [batchTransferDialogOpen, setBatchTransferDialogOpen] = useState(false)
   const [batchUpdateDialogOpen, setBatchUpdateDialogOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
 
   // 表单状态
   const [banReason, setBanReason] = useState("")
@@ -463,6 +466,37 @@ export default function UsersPage() {
     }
   }
 
+  // 删除用户相关函数
+  function handleDeleteClick(user: UserProfile) {
+    setSelectedUser(user)
+    setDeleteDialogOpen(true)
+  }
+
+  async function handleDeleteUser() {
+    if (!selectedUser) return
+
+    try {
+      setProcessing(true)
+
+      const result = await deleteUserAccount(selectedUser.id, selectedUser.email)
+
+      if (!result.success) {
+        throw new Error(result.error)
+      }
+
+      toast.success(result.message || `用户【${selectedUser.username}】已删除`)
+      setDeleteDialogOpen(false)
+      setSelectedUser(null)
+      router.refresh()
+      await loadUsers()
+    } catch (error: any) {
+      console.error("Error deleting user:", error)
+      toast.error(error.message || "删除用户失败")
+    } finally {
+      setProcessing(false)
+    }
+  }
+
   // 过滤用户列表
   const filteredUsers = users
 
@@ -757,6 +791,15 @@ export default function UsersPage() {
                                     onClick={() => handlePointsClick(user)}
                                   >
                                     <Coins className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="text-gray-600 hover:text-gray-700 hover:bg-gray-50"
+                                    onClick={() => handleDeleteClick(user)}
+                                    title="删除用户（不可恢复）"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
                                   </Button>
                                 </>
                               )}
@@ -1629,6 +1672,80 @@ export default function UsersPage() {
               className="bg-orange-600 hover:bg-orange-700"
             >
               {processing ? "处理中..." : "确认修改"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 删除用户确认对话框 */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-red-600">删除用户账户</DialogTitle>
+            <DialogDescription>
+              确认删除用户【{selectedUser?.username}】的账户吗？
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 space-y-3">
+              <p className="text-sm text-red-900 font-semibold">
+                ⚠️ 警告：此操作将删除以下所有数据，且不可恢复！
+              </p>
+              <ul className="text-xs text-red-800 space-y-1 ml-4">
+                <li>• 用户账户及认证信息</li>
+                <li>• 用户档案信息</li>
+                <li>• 所有积分记录和交易历史</li>
+                <li>• 通知消息</li>
+                <li>• 邀请记录（作为邀请人/被邀请人）</li>
+                <li>• 商家信息（如果是商家）</li>
+                <li>• 收藏、签到、查看记录</li>
+                <li>• 押金相关记录</li>
+                <li>• 内测码使用记录</li>
+              </ul>
+            </div>
+            {selectedUser && (
+              <div className="bg-gray-50 border rounded-lg p-3 space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">用户名：</span>
+                  <span className="font-medium">{selectedUser.username}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">邮箱：</span>
+                  <span className="font-medium">{selectedUser.email}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">用户编号：</span>
+                  <span className="font-mono font-medium">NO.{selectedUser.user_number}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">积分：</span>
+                  <span className="font-medium">{selectedUser.points}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">商家数：</span>
+                  <span className="font-medium">{selectedUser.merchant_count}</span>
+                </div>
+              </div>
+            )}
+            <p className="text-sm text-center text-red-600 font-medium">
+              请仔细确认后再执行删除操作！
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+              disabled={processing}
+            >
+              取消
+            </Button>
+            <Button
+              onClick={handleDeleteUser}
+              disabled={processing}
+              variant="destructive"
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {processing ? "删除中..." : "确认删除"}
             </Button>
           </DialogFooter>
         </DialogContent>
