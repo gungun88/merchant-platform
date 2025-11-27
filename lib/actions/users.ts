@@ -1453,8 +1453,14 @@ export async function deleteUserAccount(userId: string, userEmail: string) {
     // 14. 最后删除 auth 用户
     const { error: e15 } = await adminClient.auth.admin.deleteUser(userId)
     if (e15) {
-      console.error("删除 auth 用户失败:", e15)
-      errors.push("认证信息")
+      // 如果用户不存在（404），视为已删除，不算错误
+      if (e15.status === 404 || e15.code === 'user_not_found') {
+        console.log("Auth 用户已不存在，跳过")
+        deletedCount++
+      } else {
+        console.error("删除 auth 用户失败:", e15)
+        errors.push("认证信息")
+      }
     } else {
       deletedCount++
     }
