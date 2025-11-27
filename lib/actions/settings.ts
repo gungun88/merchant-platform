@@ -423,6 +423,12 @@ export async function detectSensitiveWords(text: string) {
   const supabase = await createClient()
 
   try {
+    // 参数验证：检查 text 是否有效
+    if (!text || typeof text !== 'string' || text.trim().length === 0) {
+      console.warn("敏感词检测：文本为空或无效")
+      return { success: true, detected: [], found: false }
+    }
+
     const { data: settings, error } = await supabase
       .from("system_settings")
       .select("sensitive_words")
@@ -441,8 +447,14 @@ export async function detectSensitiveWords(text: string) {
       return { success: true, detected: [], found: false }
     }
 
-    // 检测文本中是否包含敏感词
-    const detectedWords = sensitiveWords.filter((word) => text.includes(word))
+    // 安全地转换文本为小写以进行不区分大小写的匹配
+    const lowerText = text.toLowerCase()
+
+    // 检测文本中是否包含敏感词（不区分大小写）
+    const detectedWords = sensitiveWords.filter((word) => {
+      if (!word || typeof word !== 'string') return false
+      return lowerText.includes(word.toLowerCase())
+    })
 
     return {
       success: true,

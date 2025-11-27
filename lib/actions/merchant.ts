@@ -37,17 +37,18 @@ export async function createMerchant(formData: {
     throw new Error("请先登录")
   }
 
-  // 🔒 速率限制：每天最多创建3个商家
-  const { rateLimitCheck } = await import("@/lib/rate-limiter")
-  const rateLimit = await rateLimitCheck(user.id, "CREATE_MERCHANT")
-  if (!rateLimit.allowed) {
-    throw new Error(`创建商家过于频繁，请在 ${rateLimit.retryAfter} 秒后重试`)
-  }
-
+  // ✅ 优先检查：用户是否已经是商家（避免浪费速率限制配额）
   const { data: existingMerchant } = await supabase.from("merchants").select("id").eq("user_id", user.id).maybeSingle()
 
   if (existingMerchant) {
     throw new Error("您已经是商家，无法重复入驻")
+  }
+
+  // 🔒 速率限制：每天最多创建3个商家（仅在确认需要创建时才检查）
+  const { rateLimitCheck } = await import("@/lib/rate-limiter")
+  const rateLimit = await rateLimitCheck(user.id, "CREATE_MERCHANT")
+  if (!rateLimit.allowed) {
+    throw new Error(`创建商家过于频繁，请在 ${rateLimit.retryAfter} 秒后重试`)
   }
 
   // 🔒 XSS防护：清理用户输入
@@ -1425,6 +1426,43 @@ export async function adminUnpinMerchant(merchantId: string) {
     return {
       success: false,
       error: error instanceof Error ? error.message : "取消置顶失败",
+    }
+  }
+}
+
+/**
+ * 管理员 - 重置用户的商家创建速率限制
+ * @param userId 用户ID
+ */
+export async function adminResetMerchantRateLimit(userId: string) {
+  try {
+    // 检查管理员权限
+    const { requireAdmin } = await import("./auth-helpers")
+    await requireAdmin()
+
+    // 重置速率限制
+    const { resetRateLimit } = await import("@/lib/rate-limiter")
+    resetRateLimit(userId, "create_merchant")
+
+    // 记录管理员操作
+    const { logAdminOperation } = await import("./admin")
+    await logAdminOperation({
+      operationType: "reset_rate_limit",
+      targetType: "user",
+      targetId: userId,
+      description: `重置用户商家创建速率限制: ${userId}`,
+      metadata: {
+        userId,
+        action: "create_merchant",
+      },
+    })
+
+    return { success: true, message: "速率限制已重置" }
+  } catch (error) {
+    console.error("Error in adminResetMerchantRateLimit:", error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "重置速率限制失败",
     }
   }
 }
