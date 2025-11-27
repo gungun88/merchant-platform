@@ -1,6 +1,6 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
+import { createClient, createAdminClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { getSystemSettings } from "./settings"
 import { sanitizeText, sanitizeURL } from "@/lib/utils/sanitize"
@@ -17,7 +17,9 @@ export async function createUserProfile(data: {
   createdAt?: string
 }) {
   try {
-    const supabase = await createClient()
+    // 🔥 重要：使用 Admin Client 绕过 RLS，因为新用户还没有 profile 记录
+    // 如果使用普通 client，会被 RLS 策略阻止（new row violates row-level security policy）
+    const supabase = createAdminClient()
 
     // 检查 profile 是否已存在 (幂等性保证)
     const { data: existingProfile } = await supabase

@@ -11,13 +11,14 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { checkAccountLocked, recordLoginFailure, resetLoginAttempts } from "@/lib/actions/login-security"
-import { AlertCircle, Lock } from "lucide-react"
+import { AlertCircle, Lock, Eye, EyeOff, Mail } from "lucide-react"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const router = useRouter()
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -43,6 +44,13 @@ export default function LoginPage() {
       })
 
       if (loginError) {
+        // 🔥 重要：优先检查是否是邮箱未确认的错误
+        if (loginError.message?.includes('Email not confirmed') || loginError.message?.includes('email_not_confirmed')) {
+          setError("您的邮箱尚未确认，请先前往邮箱查收确认邮件并点击确认链接")
+          setIsLoading(false)
+          return
+        }
+
         // 登录失败 - 记录失败次数
         const failureResult = await recordLoginFailure(email)
 
@@ -98,23 +106,46 @@ export default function LoginPage() {
                       忘记密码？
                     </Link>
                   </div>
-                  <Input
-                    id="password"
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      tabIndex={-1}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
                 </div>
                 {error && (
-                  <div className="rounded-md bg-red-50 p-3 border border-red-200">
+                  <div className={`rounded-md p-3 border ${
+                    error.includes('邮箱尚未确认')
+                      ? 'bg-blue-50 border-blue-200'
+                      : 'bg-red-50 border-red-200'
+                  }`}>
                     <div className="flex items-start gap-2">
                       {error.includes("锁定") ? (
                         <Lock className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+                      ) : error.includes("邮箱尚未确认") ? (
+                        <Mail className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
                       ) : (
                         <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
                       )}
-                      <p className="text-sm text-red-600">{error}</p>
+                      <p className={`text-sm ${
+                        error.includes('邮箱尚未确认') ? 'text-blue-700' : 'text-red-600'
+                      }`}>{error}</p>
                     </div>
                   </div>
                 )}
