@@ -235,13 +235,25 @@ export default function RegisterPage() {
 
         if (!profileResult.success) {
           console.error("创建 profile 失败:", profileResult.error)
-          // 虽然 auth 用户创建成功了，但 profile 创建失败
-          // 记录错误但不阻断流程，用户仍然可以登录
-          // 后续可以通过修复脚本补充 profile
-          toast.error("用户资料创建失败，请联系管理员")
-        } else {
-          console.log("Profile 创建成功:", profileResult)
+
+          // 🔥 重要修复: profile 创建失败时，删除已创建的 auth 用户，防止孤立用户
+          try {
+            console.log("正在回滚注册，删除 auth 用户...")
+            const { error: signOutError } = await supabase.auth.signOut()
+            if (signOutError) {
+              console.error("登出失败:", signOutError)
+            }
+          } catch (cleanupError) {
+            console.error("清理失败:", cleanupError)
+          }
+
+          // 阻断流程，不让用户继续
+          setError(`注册失败: ${profileResult.error || "创建用户资料失败"}，请重试或联系管理员`)
+          setIsLoading(false)
+          return
         }
+
+        console.log("Profile 创建成功:", profileResult)
       }
 
       // 如果注册成功且有有效的邀请码,处理邀请奖励

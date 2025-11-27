@@ -92,14 +92,31 @@ export async function createUserProfile(data: {
 
     if (profileError) {
       console.error("Failed to create profile:", profileError)
+      console.error("Profile creation details:", {
+        userId: data.userId,
+        email: data.email,
+        username: sanitizedUsername,
+        userNumber: nextUserNumber,
+        invitationCode: finalInvitationCode,
+        errorCode: profileError.code,
+        errorMessage: profileError.message,
+        errorDetails: profileError.details,
+        errorHint: profileError.hint,
+      })
       const safeError = filterSupabaseError(profileError)
       logSecurityEvent("error", "创建用户profile失败", {
         error: safeError,
         userId: data.userId,
+        email: data.email,
+        username: sanitizedUsername,
       })
       return {
         success: false,
-        error: "创建用户资料失败",
+        error: `创建用户资料失败: ${profileError.message || "未知错误"}`,
+        details: {
+          code: profileError.code,
+          hint: profileError.hint,
+        }
       }
     }
 
