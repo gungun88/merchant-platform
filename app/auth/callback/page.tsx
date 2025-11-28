@@ -22,7 +22,12 @@ export default function AuthCallbackPage() {
 
       if (error) {
         console.error("Email verification error:", error)
-        router.push("/auth/login?error=verification_failed")
+        // 🔥 验证失败时，确保彻底清除所有 session 和本地存储
+        await supabase.auth.signOut()
+        // 等待确保清理完成
+        await new Promise(resolve => setTimeout(resolve, 100))
+        // 使用 replace 避免留下历史记录，更彻底地清除状态
+        window.location.replace("/auth/login?error=verification_failed")
       } else {
         // 验证成功，重定向到首页，此时登录的应该是刚验证的新账号
         router.push("/?verified=true")

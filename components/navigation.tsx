@@ -40,6 +40,7 @@ export function Navigation() {
   const [systemSettings, setSystemSettings] = useState<any>(null)
   const [initialLoading, setInitialLoading] = useState(true) // 新增:初始加载状态
   const router = useRouter()
+  const pathname = typeof window !== 'undefined' ? window.location.pathname : ''
 
   useEffect(() => {
     const supabase = createClient()
@@ -55,6 +56,17 @@ export function Navigation() {
       const settingsResult = await getSystemSettings()
       if (settingsResult.success && settingsResult.data) {
         setSystemSettings(settingsResult.data)
+      }
+
+      // 🔥 安全检查：如果在认证页面（登录/注册/回调），强制显示未登录状态
+      const isAuthPage = pathname.startsWith('/auth/')
+      if (isAuthPage) {
+        console.log('[Navigation] 当前在认证页面，强制显示未登录状态')
+        setIsLoggedIn(false)
+        setUser(null)
+        setProfile(null)
+        setInitialLoading(false)
+        return
       }
 
       if (user) {
