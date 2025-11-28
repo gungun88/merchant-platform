@@ -142,27 +142,30 @@ export async function createUserProfile(data: {
       console.error("Error recording points:", err)
     }
 
-    // 发送欢迎通知
+    // 发送注册成功通知
     try {
+      console.log(`[Profile] 准备发送注册通知给用户 ${data.userId}`)
       const { error: notifError } = await supabase.rpc("create_notification", {
         p_user_id: data.userId,
         p_type: "system",
         p_category: "registration",
-        p_title: "欢迎加入",
-        p_content: `注册成功！您已获得 ${registerPoints} 积分奖励，快去体验吧！`,
-        p_link_type: null,
-        p_link_id: null,
-        p_metadata: { points: registerPoints },
+        p_title: "注册奖励",
+        p_content: `欢迎加入！注册成功，获得 ${registerPoints} 积分奖励！`,
+        p_related_merchant_id: null,
+        p_related_user_id: null,
+        p_metadata: { points: registerPoints, source: "registration" },
         p_priority: "normal",
         p_expires_at: null,
       })
 
       if (notifError) {
-        console.error("Failed to send welcome notification:", notifError)
+        console.error("[Profile] 发送注册通知失败:", notifError)
         // 不阻断流程,只记录错误
+      } else {
+        console.log(`[Profile] 注册通知发送成功`)
       }
     } catch (err) {
-      console.error("Error sending notification:", err)
+      console.error("[Profile] 发送通知异常:", err)
     }
 
     console.log(`Profile created successfully for user ${data.userId}`)

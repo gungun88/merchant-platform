@@ -285,8 +285,8 @@ export async function processInvitationReward(invitationCode: string, inviteeId:
           userId: inviteeId,
           type: "transaction",
           category: "invited_reward",
-          title: "注册奖励",
-          content: `欢迎加入!通过内测邀请码注册,获得 ${invitationPoints} 积分奖励!`,
+          title: "邀请码奖励",
+          content: `通过内测邀请码注册，获得 ${invitationPoints} 积分奖励！`,
           relatedUserId: null,
           metadata: { points: invitationPoints, codeType: 'beta' },
         })
@@ -457,8 +457,8 @@ export async function processInvitationReward(invitationCode: string, inviteeId:
       userId: inviteeId,
       type: "transaction",
       category: "invited_reward",
-      title: "注册奖励",
-      content: `欢迎加入!通过好友邀请注册,获得 ${invitationPoints} 积分奖励!`,
+      title: "邀请码奖励",
+      content: `通过好友邀请注册，获得 ${invitationPoints} 积分奖励！`,
       relatedUserId: inviterProfile.id,
       metadata: { points: invitationPoints },
     })
