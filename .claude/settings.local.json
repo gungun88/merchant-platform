@@ -68,7 +68,10 @@
       "Bash(Select-Object -Last 10)",
       "Bash(pm2 -v:*)",
       "Bash(powershell:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(npx next build)",
+      "Bash(timeout /t 30)",
+      "Bash(set NODE_ENV=development)"
     ],
     "deny": [],
     "ask": []

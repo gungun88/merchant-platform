@@ -13,9 +13,8 @@ export default function AuthCallbackPage() {
       const supabase = createClient()
 
       // 处理邮箱验证回调 - 交换 code 换取 session
-      const { data, error } = await supabase.auth.exchangeCodeForSession(
-        window.location.search.substring(1)
-      )
+      // 注意：不需要传参数，Supabase 会自动从 URL 读取
+      const { data, error } = await supabase.auth.exchangeCodeForSession()
 
       if (error) {
         console.error("Email verification error:", error)

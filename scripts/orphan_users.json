@@ -1,0 +1,31 @@
+[
+  {
+    "id": "33a9f4e7-3369-4f0f-8dc2-a89b535b76e7",
+    "aud": "authenticated",
+    "role": "authenticated",
+    "email": "hzy0594@gmail.com",
+    "email_confirmed_at": "2025-11-27T12:35:06.999728Z",
+    "phone": "",
+    "confirmation_sent_at": "2025-11-27T12:34:13.052377Z",
+    "confirmed_at": "2025-11-27T12:35:06.999728Z",
+    "recovery_sent_at": "2025-11-27T12:34:55.973627Z",
+    "last_sign_in_at": "2025-11-27T12:35:47.656051Z",
+    "app_metadata": {
+      "provider": "email",
+      "providers": [
+        "email"
+      ]
+    },
+    "user_metadata": {
+      "email": "hzy0594@gmail.com",
+      "email_verified": true,
+      "phone_verified": false,
+      "sub": "33a9f4e7-3369-4f0f-8dc2-a89b535b76e7",
+      "username": "a5790316"
+    },
+    "identities": null,
+    "created_at": "2025-11-27T12:34:12.874934Z",
+    "updated_at": "2025-11-27T12:35:47.664907Z",
+    "is_anonymous": false
+  }
+]
