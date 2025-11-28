@@ -14,14 +14,19 @@ export default function AuthCallbackPage() {
 
       // 处理邮箱验证回调
       const urlParams = new URL(window.location.href).searchParams
-      const token_hash = urlParams.get('token_hash')
+      const token_hash = urlParams.get('token_hash') || urlParams.get('token')
       const type = urlParams.get('type')
       const code = urlParams.get('code')
 
       console.log('[Callback] URL:', window.location.href)
-      console.log('[Callback] Params:', { token_hash, type, code })
+      console.log('[Callback] Params:', {
+        token_hash: urlParams.get('token_hash'),
+        token: urlParams.get('token'),
+        type,
+        code
+      })
 
-      // 邮箱验证使用 token_hash + type
+      // 邮箱验证使用 token_hash/token + type
       if (token_hash && type) {
         console.log('[Callback] Using verifyOtp for email verification')
         const { data, error } = await supabase.auth.verifyOtp({
