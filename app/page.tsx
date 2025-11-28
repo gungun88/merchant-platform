@@ -231,8 +231,6 @@ export default function MerchantCenter() {
           table: 'merchants'
         },
         (payload) => {
-          console.log('✅ [前台商家列表] 商家数据变化:', payload)
-
           // 使用防抖，避免短时间内多次变化导致频繁加载
           if (debounceTimer) {
             clearTimeout(debounceTimer)
@@ -249,9 +247,7 @@ export default function MerchantCenter() {
           }, 1000) // 1秒防抖
         }
       )
-      .subscribe((status) => {
-        console.log('📡 [前台商家列表] 订阅状态:', status)
-      })
+      .subscribe()
 
     // 清理函数：组件卸载时取消订阅和定时器
     return () => {

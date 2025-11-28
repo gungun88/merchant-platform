@@ -41,7 +41,6 @@ export default function LeaderboardPage() {
       }
 
       if (data) {
-        console.log("查询到的数据:", data)
         // 添加排名
         const rankedData = data.map((user, index) => ({
           ...user,

@@ -17,8 +17,6 @@ export default function AuthCallbackPage() {
       const { data: { session: currentSession } } = await supabase.auth.getSession()
 
       if (currentSession) {
-        console.log('[Callback] Session already exists, redirecting to home')
-
         // 清理 sessionStorage
         sessionStorage.removeItem('pending_verification_email')
 
@@ -35,8 +33,6 @@ export default function AuthCallbackPage() {
 
       // 邮箱验证流程（token + type）
       if (token_hash && type) {
-        console.log('[Callback] Using verifyOtp for email verification')
-
         const { data, error } = await supabase.auth.verifyOtp({
           token_hash,
           type: type as any,
@@ -49,7 +45,6 @@ export default function AuthCallbackPage() {
         }
 
         if (data.session) {
-          console.log("[Callback] Email verification successful!")
           sessionStorage.removeItem('pending_verification_email')
           router.push("/?verified=true")
           return
@@ -58,8 +53,6 @@ export default function AuthCallbackPage() {
 
       // OAuth 流程（code 参数）
       if (code) {
-        console.log('[Callback] Using exchangeCodeForSession for OAuth')
-
         const { data, error } = await supabase.auth.exchangeCodeForSession(code)
 
         if (error) {
@@ -68,7 +61,6 @@ export default function AuthCallbackPage() {
           // 即使报错，也检查 session 是否已创建
           const { data: { session: finalSession } } = await supabase.auth.getSession()
           if (finalSession) {
-            console.log('[Callback] Session exists despite error, redirecting')
             sessionStorage.removeItem('pending_verification_email')
             router.push("/?verified=true")
             return
@@ -79,7 +71,6 @@ export default function AuthCallbackPage() {
         }
 
         if (data.session) {
-          console.log("[Callback] OAuth successful!")
           sessionStorage.removeItem('pending_verification_email')
           router.push("/?verified=true")
           return

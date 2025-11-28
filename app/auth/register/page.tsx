@@ -217,7 +217,6 @@ export default function RegisterPage() {
 
       // 保存预期的邮箱到 sessionStorage，用于 callback 验证
       sessionStorage.setItem('pending_verification_email', email.toLowerCase())
-      console.log("[Register] 保存预期邮箱到 sessionStorage:", email.toLowerCase())
 
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -234,8 +233,6 @@ export default function RegisterPage() {
 
       // 关键修复: 手动创建 profile (因为数据库触发器不可靠)
       if (data.user) {
-        console.log("注册成功，开始创建 profile...")
-
         const profileResult = await createUserProfile({
           userId: data.user.id,
           username: username,
@@ -248,7 +245,6 @@ export default function RegisterPage() {
 
           // 🔥 重要修复: profile 创建失败时，删除已创建的 auth 用户，防止孤立用户
           try {
-            console.log("正在回滚注册，删除 auth 用户...")
             const { error: signOutError } = await supabase.auth.signOut()
             if (signOutError) {
               console.error("登出失败:", signOutError)
@@ -262,47 +258,23 @@ export default function RegisterPage() {
           setIsLoading(false)
           return
         }
-
-        console.log("Profile 创建成功:", profileResult)
       }
 
       // 如果注册成功且有有效的邀请码,处理邀请奖励
-      console.log("检查邀请码:", {
-        hasUser: !!data.user,
-        invitationCode,
-        invitationValid: invitationValid?.valid,
-        invitationType: invitationValid?.type,
-      })
-
       if (data.user && invitationCode && invitationValid?.valid) {
         try {
-          console.log("开始处理邀请奖励...")
           const result = await processInvitationReward(invitationCode, data.user.id)
-          console.log("邀请奖励处理结果:", result)
 
-          if (result) {
-            if (result.type === 'beta') {
-              console.log("内测码使用成功")
-            } else {
-              console.log("邀请奖励处理成功,双方各获得积分")
-            }
-          } else {
-            console.log("邀请奖励处理返回null，可能被邀请过或邀请码无效")
+          if (!result) {
+            // 邀请奖励处理返回null，可能被邀请过或邀请码无效
           }
         } catch (invitationError) {
           console.error("处理邀请奖励失败:", invitationError)
           // 即使邀请奖励处理失败,也不影响注册流程
         }
-      } else {
-        console.log("跳过邀请奖励处理，条件不满足:", {
-          hasUser: !!data.user,
-          hasCode: !!invitationCode,
-          isValid: invitationValid?.valid,
-        })
       }
 
       // 确保邀请奖励处理完成后再跳转
-      console.log("准备跳转到注册成功页面...")
       router.push("/auth/register-success")
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "注册失败")
