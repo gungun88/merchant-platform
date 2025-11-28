@@ -12,24 +12,36 @@ export default function AuthCallbackPage() {
     const handleCallback = async () => {
       const supabase = createClient()
 
-      // 🔥 关键修复: 先清除任何现有的 session，确保验证邮箱后登录的是新注册的账号
-      await supabase.auth.signOut({ scope: 'local' })
-
-      // 处理邮箱验证回调
-      const { error } = await supabase.auth.exchangeCodeForSession(
+      // 处理邮箱验证回调 - 交换 code 换取 session
+      const { data, error } = await supabase.auth.exchangeCodeForSession(
         window.location.search.substring(1)
       )
 
       if (error) {
         console.error("Email verification error:", error)
-        // 🔥 验证失败时，确保彻底清除所有 session 和本地存储
-        await supabase.auth.signOut()
-        // 等待确保清理完成
-        await new Promise(resolve => setTimeout(resolve, 100))
-        // 使用 replace 避免留下历史记录，更彻底地清除状态
-        window.location.replace("/auth/login?error=verification_failed")
-      } else {
-        // 验证成功，重定向到首页，此时登录的应该是刚验证的新账号
+        // 验证失败时跳转到登录页并显示错误信息
+        router.push("/auth/login?error=verification_failed")
+      } else if (data.session) {
+        // 验证成功，session 已自动设置
+        const loggedInEmail = data.user?.email
+        console.log("Email verification successful, user logged in:", loggedInEmail)
+
+        // 🔥 额外验证：检查登录的邮箱是否是预期的邮箱
+        const expectedEmail = sessionStorage.getItem('pending_verification_email')
+        if (expectedEmail && loggedInEmail) {
+          if (loggedInEmail.toLowerCase() !== expectedEmail.toLowerCase()) {
+            console.warn(`[Callback] 邮箱不匹配！预期: ${expectedEmail}, 实际: ${loggedInEmail}`)
+            // 清除错误的 session
+            await supabase.auth.signOut()
+            router.push("/auth/login?error=email_mismatch")
+            return
+          } else {
+            console.log("[Callback] 邮箱验证通过:", loggedInEmail)
+            // 清除 sessionStorage
+            sessionStorage.removeItem('pending_verification_email')
+          }
+        }
+
         router.push("/?verified=true")
       }
     }

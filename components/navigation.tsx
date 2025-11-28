@@ -58,17 +58,6 @@ export function Navigation() {
         setSystemSettings(settingsResult.data)
       }
 
-      // 🔥 安全检查：如果在认证页面（登录/注册/回调），强制显示未登录状态
-      const isAuthPage = pathname.startsWith('/auth/')
-      if (isAuthPage) {
-        console.log('[Navigation] 当前在认证页面，强制显示未登录状态')
-        setIsLoggedIn(false)
-        setUser(null)
-        setProfile(null)
-        setInitialLoading(false)
-        return
-      }
-
       if (user) {
         // 只有登录用户才显示初始加载状态
         setIsLoggedIn(true)

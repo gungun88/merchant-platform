@@ -157,6 +157,13 @@ export default function RegisterPage() {
     setIsLoading(true)
     setError(null)
 
+    // 🔥 关键修复：注册前清除所有可能残留的认证数据
+    // 场景：用户退出A账号后立即注册B账号，localStorage 可能还有A的残留
+    console.log("[Register] 注册前清除旧 session...")
+    await supabase.auth.signOut()
+    // 等待确保清理完成
+    await new Promise(resolve => setTimeout(resolve, 100))
+
     // 1. 检查邮箱是否已被注册
     const { data: existingUsers, error: checkError } = await supabase
       .from('profiles')
@@ -211,6 +218,10 @@ export default function RegisterPage() {
     }
 
     try {
+      // 🔥 保存预期的邮箱到 sessionStorage，用于 callback 验证
+      sessionStorage.setItem('pending_verification_email', email.toLowerCase())
+      console.log("[Register] 保存预期邮箱到 sessionStorage:", email.toLowerCase())
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
