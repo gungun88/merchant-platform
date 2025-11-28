@@ -12,7 +12,7 @@ export default function AuthCallbackPage() {
     const handleCallback = async () => {
       const supabase = createClient()
 
-      // 处理邮箱验证回调
+      // 从 URL 提取所有可能的参数
       const urlParams = new URL(window.location.href).searchParams
       const token_hash = urlParams.get('token_hash') || urlParams.get('token')
       const type = urlParams.get('type')
@@ -23,26 +23,30 @@ export default function AuthCallbackPage() {
         token_hash: urlParams.get('token_hash'),
         token: urlParams.get('token'),
         type,
-        code
+        code,
+        allParams: Object.fromEntries(urlParams.entries())
       })
 
-      // 邮箱验证使用 token_hash/token + type
+      // 优先处理邮箱验证（token_hash/token + type）
+      // 这是 Supabase 邮箱验证的标准流程
       if (token_hash && type) {
+        console.log('[Callback] Detected email verification (token + type)')
         console.log('[Callback] Using verifyOtp for email verification')
+
         const { data, error } = await supabase.auth.verifyOtp({
           token_hash,
           type: type as any,
         })
 
         if (error) {
-          console.error("Email verification error:", error)
+          console.error("[Callback] Email verification error:", error)
           router.push("/auth/login?error=verification_failed")
           return
         }
 
         if (data.session) {
           const loggedInEmail = data.user?.email
-          console.log("Email verification successful, user logged in:", loggedInEmail)
+          console.log("[Callback] Email verification successful! User logged in:", loggedInEmail)
 
           // 验证邮箱是否匹配
           const expectedEmail = sessionStorage.getItem('pending_verification_email')
@@ -53,13 +57,14 @@ export default function AuthCallbackPage() {
               router.push("/auth/login?error=email_mismatch")
               return
             } else {
-              console.log("[Callback] 邮箱验证通过:", loggedInEmail)
+              console.log("[Callback] 邮箱验证通过，清除 sessionStorage")
               sessionStorage.removeItem('pending_verification_email')
             }
           }
 
+          console.log("[Callback] Redirecting to home page...")
           router.push("/?verified=true")
-          return
+          return // 重要：成功后立即返回，不再处理其他参数
         }
       }
 
