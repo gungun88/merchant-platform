@@ -12,9 +12,17 @@ export default function AuthCallbackPage() {
     const handleCallback = async () => {
       const supabase = createClient()
 
-      // 处理邮箱验证回调 - 交换 code 换取 session
-      // 注意：不需要传参数，Supabase 会自动从 URL 读取
-      const { data, error } = await supabase.auth.exchangeCodeForSession()
+      // 处理邮箱验证回调 - 从 URL 提取验证码
+      const code = new URL(window.location.href).searchParams.get('code')
+
+      if (!code) {
+        console.error('No verification code found in URL')
+        router.push("/auth/login?error=no_code")
+        return
+      }
+
+      // 交换 code 换取 session
+      const { data, error } = await supabase.auth.exchangeCodeForSession(code)
 
       if (error) {
         console.error("Email verification error:", error)
