@@ -155,16 +155,16 @@ export async function getIncomeStats(): Promise<{
       return { success: false, error: "权限不足" }
     }
 
-    // 获取今日日期
-    const today = new Date().toISOString().split("T")[0]
-    // 获取本月第一天
-    const thisMonthStart = new Date()
-    thisMonthStart.setDate(1)
-    thisMonthStart.setHours(0, 0, 0, 0)
-    // 获取本年第一天
-    const thisYearStart = new Date()
-    thisYearStart.setMonth(0, 1)
-    thisYearStart.setHours(0, 0, 0, 0)
+    // 获取今日日期 - 使用北京时间
+    const now = new Date()
+    const bjNow = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Shanghai" }))
+    const today = `${bjNow.getFullYear()}-${String(bjNow.getMonth() + 1).padStart(2, '0')}-${String(bjNow.getDate()).padStart(2, '0')}`
+
+    // 获取本月第一天 - 使用北京时间
+    const thisMonthStart = new Date(bjNow.getFullYear(), bjNow.getMonth(), 1)
+
+    // 获取本年第一天 - 使用北京时间
+    const thisYearStart = new Date(bjNow.getFullYear(), 0, 1)
 
     // 使用管理员客户端
     const { createAdminClient } = await import("@/lib/supabase/server")
@@ -472,16 +472,16 @@ export async function getIncomeTrend(): Promise<{
     const { createAdminClient } = await import("@/lib/supabase/server")
     const adminClient = createAdminClient()
 
-    // 获取最近12个月的数据
-    const twelveMonthsAgo = new Date()
-    twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 11)
-    twelveMonthsAgo.setDate(1)
-    twelveMonthsAgo.setHours(0, 0, 0, 0)
+    // 获取最近12个月的数据 - 使用北京时间
+    const now = new Date()
+    const bjNow = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Shanghai" }))
+    const twelveMonthsAgo = new Date(bjNow.getFullYear(), bjNow.getMonth() - 11, 1)
+    const startDate = `${twelveMonthsAgo.getFullYear()}-${String(twelveMonthsAgo.getMonth() + 1).padStart(2, '0')}-01`
 
     const { data, error } = await adminClient
       .from("platform_income")
       .select("income_type, amount, income_date")
-      .gte("income_date", twelveMonthsAgo.toISOString().split("T")[0])
+      .gte("income_date", startDate)
       .order("income_date", { ascending: true })
 
     if (error) {

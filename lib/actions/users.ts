@@ -204,10 +204,17 @@ export async function getUserStats(): Promise<UserStats> {
     const banned = allUsers.filter((u) => u.is_banned).length
     const admins = allUsers.filter((u) => u.role === "admin").length
 
-    // 计算今天新增用户
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const newToday = allUsers.filter((u) => new Date(u.created_at) >= today).length
+    // 计算今天新增用户 - 使用北京时间
+    const now = new Date()
+    const bjNow = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Shanghai" }))
+    const today = new Date(bjNow.getFullYear(), bjNow.getMonth(), bjNow.getDate())
+
+    const newToday = allUsers.filter((u) => {
+      const userCreatedAt = new Date(u.created_at)
+      const userCreatedBJ = new Date(userCreatedAt.toLocaleString("en-US", { timeZone: "Asia/Shanghai" }))
+      const userCreatedDate = new Date(userCreatedBJ.getFullYear(), userCreatedBJ.getMonth(), userCreatedBJ.getDate())
+      return userCreatedDate.getTime() === today.getTime()
+    }).length
 
     // 统计商家用户数（拥有商家的用户）
     const userIds = allUsers.map((u) => u.id)

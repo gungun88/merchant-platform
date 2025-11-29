@@ -673,9 +673,15 @@ function calculateRefundFee(depositAmount: number, depositPaidAt: string): {
   feeAmount: number
   refundAmount: number
 } {
+  // 统一使用北京时间计算
   const paidDate = new Date(depositPaidAt)
+  const paidDateBJ = new Date(paidDate.toLocaleString("en-US", { timeZone: "Asia/Shanghai" }))
+
   const now = new Date()
-  const monthsDiff = (now.getTime() - paidDate.getTime()) / (1000 * 60 * 60 * 24 * 30)
+  const nowBJ = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Shanghai" }))
+
+  // 计算月份差
+  const monthsDiff = (nowBJ.getTime() - paidDateBJ.getTime()) / (1000 * 60 * 60 * 24 * 30)
 
   let feeRate = 0
   if (monthsDiff < 3) {
