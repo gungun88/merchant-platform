@@ -47,6 +47,7 @@ export function Navigation() {
     let realtimeChannel: ReturnType<typeof supabase.channel> | null = null
     let notificationsChannel: ReturnType<typeof supabase.channel> | null = null
     let midnightCheckTimer: NodeJS.Timeout | null = null
+    let broadcastChannel: BroadcastChannel | null = null
 
     async function loadUser() {
       const {
@@ -127,14 +128,12 @@ export function Navigation() {
               if (payload.new) {
                 setProfile(payload.new as any)
 
-                // 🔥 检查签到状态是否变化
-                const newProfile = payload.new as any
-                if (newProfile.last_checkin) {
-                  // 重新获取签到状态，确保准确性
-                  const status = await getCheckInStatus(user.id)
-                  setHasCheckedIn(status.hasCheckedInToday)
-                  setConsecutiveDays(status.consecutiveDays)
-                }
+                // 🔥 每次profile更新都重新检查签到状态
+                // 这样可以同步多个窗口的签到状态
+                const status = await getCheckInStatus(user.id)
+                console.log('[Realtime] Updated check-in status:', status)
+                setHasCheckedIn(status.hasCheckedInToday)
+                setConsecutiveDays(status.consecutiveDays)
               }
             }
           )
@@ -189,6 +188,23 @@ export function Navigation() {
             console.log('[Realtime] Notifications channel status:', status)
           })
 
+        // 🔥 创建BroadcastChannel用于同源窗口间通信
+        if (typeof BroadcastChannel !== 'undefined') {
+          broadcastChannel = new BroadcastChannel('checkin-sync')
+
+          // 监听其他窗口的签到事件
+          broadcastChannel.onmessage = async (event) => {
+            console.log('[BroadcastChannel] Received message:', event.data)
+            if (event.data.type === 'checkin-success') {
+              // 其他窗口签到成功,更新本窗口状态
+              const status = await getCheckInStatus(user.id)
+              setHasCheckedIn(status.hasCheckedInToday)
+              setConsecutiveDays(status.consecutiveDays)
+              console.log('[BroadcastChannel] Check-in status synced from other tab')
+            }
+          }
+        }
+
         // 已登录用户加载完成
         setInitialLoading(false)
       } else {
@@ -233,6 +249,10 @@ export function Navigation() {
       if (midnightCheckTimer) {
         clearInterval(midnightCheckTimer)
       }
+      // 🔥 关闭BroadcastChannel
+      if (broadcastChannel) {
+        broadcastChannel.close()
+      }
     }
   }, [])
 
@@ -251,6 +271,14 @@ export function Navigation() {
 
         // 触发积分更新事件
         triggerPointsUpdate()
+
+        // 🔥 广播签到成功消息给同源的其他窗口
+        if (typeof BroadcastChannel !== 'undefined') {
+          const bc = new BroadcastChannel('checkin-sync')
+          bc.postMessage({ type: 'checkin-success', userId: user.id })
+          bc.close()
+          console.log('[BroadcastChannel] Broadcasted checkin-success to other tabs')
+        }
       } else {
         toast.error(result.error)
       }
