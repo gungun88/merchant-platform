@@ -46,6 +46,7 @@ export function Navigation() {
     const supabase = createClient()
     let realtimeChannel: ReturnType<typeof supabase.channel> | null = null
     let notificationsChannel: ReturnType<typeof supabase.channel> | null = null
+    let midnightCheckTimer: NodeJS.Timeout | null = null
 
     async function loadUser() {
       const {
@@ -82,6 +83,26 @@ export function Navigation() {
         setConsecutiveDays(status.consecutiveDays)
         setLoadingCheckInStatus(false)
 
+        // 🔥 设置每分钟检查一次是否跨天
+        const checkMidnight = async () => {
+          const status = await getCheckInStatus(user.id)
+          // 直接更新状态，让 React 处理变化检测
+          setHasCheckedIn((prevHasCheckedIn) => {
+            // 如果状态发生变化（跨天后会从true变false）
+            if (prevHasCheckedIn !== status.hasCheckedInToday) {
+              console.log('[Midnight Check] 检测到跨天，重置签到状态', {
+                之前: prevHasCheckedIn,
+                现在: status.hasCheckedInToday
+              })
+              setConsecutiveDays(status.consecutiveDays)
+            }
+            return status.hasCheckedInToday
+          })
+        }
+
+        // 每分钟检查一次
+        midnightCheckTimer = setInterval(checkMidnight, 60 * 1000)
+
         // 获取未读通知数量
         const unreadResult = await getUnreadCount()
         console.log('[Navigation] Initial unread count:', unreadResult)
@@ -89,7 +110,7 @@ export function Navigation() {
           setUnreadCount(unreadResult.count)
         }
 
-        // 订阅当前用户的 profile 变化（实时更新积分）
+        // 订阅当前用户的 profile 变化（实时更新积分和签到状态）
         realtimeChannel = supabase
           .channel(`profile-${user.id}`)
           .on(
@@ -100,11 +121,20 @@ export function Navigation() {
               table: 'profiles',
               filter: `id=eq.${user.id}`,
             },
-            (payload) => {
+            async (payload) => {
               console.log('[Realtime] Profile updated:', payload)
               // 实时更新 profile 数据
               if (payload.new) {
                 setProfile(payload.new as any)
+
+                // 🔥 检查签到状态是否变化
+                const newProfile = payload.new as any
+                if (newProfile.last_checkin) {
+                  // 重新获取签到状态，确保准确性
+                  const status = await getCheckInStatus(user.id)
+                  setHasCheckedIn(status.hasCheckedInToday)
+                  setConsecutiveDays(status.consecutiveDays)
+                }
               }
             }
           )
@@ -199,6 +229,10 @@ export function Navigation() {
       if (notificationsChannel) {
         supabase.removeChannel(notificationsChannel)
       }
+      // 🔥 清理定时器
+      if (midnightCheckTimer) {
+        clearInterval(midnightCheckTimer)
+      }
     }
   }, [])
 
@@ -208,13 +242,18 @@ export function Navigation() {
     setLoading(true)
     try {
       const result = await checkIn(user.id)
-      setHasCheckedIn(true)
-      setConsecutiveDays(result.consecutiveDays)
-      setEarnedPoints(result.points)
-      toast.success(`签到成功！获得 ${result.points} 积分`)
 
-      // 触发积分更新事件
-      triggerPointsUpdate()
+      if (result.success) {
+        setHasCheckedIn(true)
+        setConsecutiveDays(result.data.consecutiveDays)
+        setEarnedPoints(result.data.points)
+        toast.success(`签到成功！获得 ${result.data.points} 积分`)
+
+        // 触发积分更新事件
+        triggerPointsUpdate()
+      } else {
+        toast.error(result.error)
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "签到失败")
     } finally {

@@ -276,8 +276,12 @@ export async function addPointsLog(
 
 /**
  * 签到功能
+ * @returns 成功返回 { success: true, data: {...} }, 失败返回 { success: false, error: string }
  */
-export async function checkIn(userId: string) {
+export async function checkIn(userId: string): Promise<
+  | { success: true; data: { points: number; consecutiveDays: number } }
+  | { success: false; error: string }
+> {
   const supabase = await createClient()
 
   try {
@@ -285,14 +289,14 @@ export async function checkIn(userId: string) {
     const { rateLimitCheck } = await import("@/lib/rate-limiter")
     const rateLimit = await rateLimitCheck(userId, "CHECKIN")
     if (!rateLimit.allowed) {
-      throw new Error(`签到操作过于频繁，请在 ${rateLimit.retryAfter} 秒后重试`)
+      return { success: false, error: `签到操作过于频繁，请在 ${rateLimit.retryAfter} 秒后重试` }
     }
 
     // 获取签到状态
     const status = await getCheckInStatus(userId)
 
     if (status.hasCheckedInToday) {
-      throw new Error("今天已经签到过了")
+      return { success: false, error: "今天已经签到过了" }
     }
 
     // 获取系统设置
@@ -360,12 +364,15 @@ export async function checkIn(userId: string) {
     })
 
     return {
-      points,
-      consecutiveDays: newConsecutiveDays,
+      success: true,
+      data: {
+        points,
+        consecutiveDays: newConsecutiveDays,
+      },
     }
   } catch (error) {
     console.error("Error checking in:", error)
-    throw error
+    return { success: false, error: error instanceof Error ? error.message : "签到失败" }
   }
 }
 
@@ -394,15 +401,19 @@ export async function getCheckInStatus(userId: string) {
   const { data: dbTimeData } = await supabase.rpc("now")
   const dbTime = dbTimeData ? new Date(dbTimeData) : new Date()
 
-  const today = new Date(dbTime)
-  today.setHours(0, 0, 0, 0)
+  // 🔥 修复时区问题：统一转换为北京时间 (UTC+8)
+  // 获取当天的北京时间 0点
+  const bjTime = new Date(dbTime.toLocaleString("en-US", { timeZone: "Asia/Shanghai" }))
+  const today = new Date(bjTime.getFullYear(), bjTime.getMonth(), bjTime.getDate())
 
   let hasCheckedInToday = false
   let consecutiveDays = profile.consecutive_checkin_days || 0
 
   if (profile.last_checkin) {
-    const lastCheckin = new Date(profile.last_checkin)
-    lastCheckin.setHours(0, 0, 0, 0)
+    // 将签到时间也转换为北京时间
+    const lastCheckinUTC = new Date(profile.last_checkin)
+    const lastCheckinBJ = new Date(lastCheckinUTC.toLocaleString("en-US", { timeZone: "Asia/Shanghai" }))
+    const lastCheckin = new Date(lastCheckinBJ.getFullYear(), lastCheckinBJ.getMonth(), lastCheckinBJ.getDate())
 
     const diffDays = Math.floor((today.getTime() - lastCheckin.getTime()) / (1000 * 60 * 60 * 24))
 

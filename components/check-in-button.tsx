@@ -44,10 +44,15 @@ export function CheckInButton() {
 
     try {
       const result = await checkIn(userId)
-      setHasCheckedIn(true)
-      setConsecutiveDays(result.consecutiveDays)
-      toast.success(`签到成功！获得 ${result.points} 积分`)
-      router.refresh()
+
+      if (result.success) {
+        setHasCheckedIn(true)
+        setConsecutiveDays(result.data.consecutiveDays)
+        toast.success(`签到成功！获得 ${result.data.points} 积分`)
+        router.refresh()
+      } else {
+        toast.error(result.error)
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "签到失败")
     } finally {
